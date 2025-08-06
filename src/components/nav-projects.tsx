@@ -79,7 +79,7 @@ export function NavProjects({
                           >
                             <button
                               onClick={() => handleItemClick(subItem.viewId)}
-                              className="w-full text-left"
+                              className="w-full text-left cursor-pointer"
                             >
                               <span>{subItem.title}</span>
                             </button>

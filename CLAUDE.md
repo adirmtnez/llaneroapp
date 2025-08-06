@@ -89,8 +89,75 @@ npm run build
 npm run lint
 ```
 
+## Git Flow - Metodología de Ramas
+
+### Configuración
+
+El proyecto utiliza **Git Flow** como metodología de control de versiones con la siguiente configuración:
+
+#### Ramas Principales
+- **`main`** - Rama de producción (releases estables)
+- **`develop`** - Rama de desarrollo (integración de features)
+
+#### Ramas de Soporte
+- **`feature/*`** - Nuevas funcionalidades
+- **`bugfix/*`** - Corrección de bugs en develop
+- **`release/*`** - Preparación de releases
+- **`hotfix/*`** - Corrección urgente en producción
+- **`support/*`** - Ramas de soporte
+
+### Flujo de Trabajo
+
+#### Desarrollo de Features
+```bash
+# Crear nueva feature
+git flow feature start nombre-feature
+
+# Finalizar feature (merge a develop)
+git flow feature finish nombre-feature
+```
+
+#### Releases
+```bash
+# Crear release
+git flow release start 1.0.0
+
+# Finalizar release (merge a main y develop)
+git flow release finish 1.0.0
+```
+
+#### Hotfixes
+```bash
+# Crear hotfix desde main
+git flow hotfix start 1.0.1
+
+# Finalizar hotfix (merge a main y develop)
+git flow hotfix finish 1.0.1
+```
+
+### Comandos Git Flow
+
+| Comando | Descripción |
+|---------|-------------|
+| `git flow init` | Inicializar Git Flow |
+| `git flow feature start <name>` | Crear nueva feature |
+| `git flow feature finish <name>` | Finalizar feature |
+| `git flow release start <version>` | Crear release |
+| `git flow release finish <version>` | Finalizar release |
+| `git flow hotfix start <version>` | Crear hotfix |
+| `git flow hotfix finish <version>` | Finalizar hotfix |
+
+### Convenciones
+
+1. **Features**: Desarrollar en ramas `feature/` desde `develop`
+2. **Releases**: Crear desde `develop`, merge a `main` y `develop`
+3. **Hotfixes**: Crear desde `main`, merge a `main` y `develop`
+4. **Commits**: Usar mensajes descriptivos y claros
+5. **Versioning**: Seguir Semantic Versioning (MAJOR.MINOR.PATCH)
+
 ## Notas Importantes
 
 - Cada sección (Bodegones/Restaurantes) tiene su propia gestión independiente
 - El sistema es completamente SPA sin cambios de URL
 - Mantener consistencia en la estructura de archivos y naming conventions
+- **Usar Git Flow** para todas las nuevas funcionalidades y releases

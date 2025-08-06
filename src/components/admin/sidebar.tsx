@@ -122,7 +122,7 @@ export function Sidebar({ currentView = 'inicio', onViewChange }: SidebarProps) 
                     }
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                    "w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                     currentView === item.id
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -147,7 +147,7 @@ export function Sidebar({ currentView = 'inicio', onViewChange }: SidebarProps) 
                         <button
                           onClick={() => handleItemClick(child.id)}
                           className={cn(
-                            "w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-lg transition-colors",
+                            "w-full flex items-center space-x-3 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer",
                             currentView === child.id
                               ? "bg-blue-50 text-blue-700"
                               : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
