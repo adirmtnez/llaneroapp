@@ -98,19 +98,19 @@ export function BodegonesLocView() {
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">Bodegones</h1>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <Button variant="outline" size="sm" className="whitespace-nowrap">
+          <Button variant="outline" size="sm" className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm">
             <DownloadIcon className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Exportar</span>
             <span className="sm:hidden">Export</span>
           </Button>
-          <Button variant="outline" size="sm" className="whitespace-nowrap">
+          <Button variant="outline" size="sm" className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm">
             <UploadIcon className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Importar</span>
             <span className="sm:hidden">Import</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="whitespace-nowrap">
+              <Button variant="outline" size="sm" className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm">
                 <span className="hidden sm:inline">Más acciones</span>
                 <span className="sm:hidden">Más</span>
               </Button>
@@ -124,13 +124,13 @@ export function BodegonesLocView() {
             size="sm" 
             variant="outline"
             onClick={() => setIsLoading(!isLoading)}
-            className="whitespace-nowrap"
+            className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
           >
             {isLoading ? 'Ocultar' : 'Mostrar'} Skeleton
           </Button>
           <Button 
             size="sm" 
-            className="whitespace-nowrap"
+            className="whitespace-nowrap h-11 md:h-10 text-base md:text-sm"
             onClick={() => setShowAddModal(true)}
           >
             <PlusIcon className="w-4 h-4 mr-2" />
@@ -148,7 +148,7 @@ export function BodegonesLocView() {
                   key={filter}
                   variant={selectedFilter === filter ? "default" : "ghost"}
                   size="sm"
-                  className="rounded-none first:rounded-l-md last:rounded-r-md text-xs md:text-sm flex-1 md:flex-none"
+                  className="rounded-none first:rounded-l-md last:rounded-r-md flex-1 md:flex-none h-10 md:h-8 text-base md:text-sm"
                   onClick={() => setSelectedFilter(filter)}
                 >
                   {filter}
@@ -166,7 +166,7 @@ export function BodegonesLocView() {
                   className="pl-9 md:w-64"
                 />
               </div>
-              <Button variant="outline" size="sm" className="shrink-0">
+              <Button variant="outline" size="sm" className="shrink-0 h-10 md:h-8">
                 <FilterIcon className="w-4 h-4" />
               </Button>
             </div>
@@ -254,7 +254,7 @@ export function BodegonesLocView() {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="h-10 md:h-8">
                             <MoreHorizontalIcon className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>

@@ -67,7 +67,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           value={formData.name}
           onChange={(e) => handleInputChange('name', e.target.value)}
           required
-          className={`${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="h-10 md:h-9 text-base md:text-sm"
         />
       </div>
 
@@ -78,7 +78,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           placeholder="Ej: Av. Principal #123, Ciudad"
           value={formData.address}
           onChange={(e) => handleInputChange('address', e.target.value)}
-          className={`${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="h-10 md:h-9 text-base md:text-sm"
         />
       </div>
 
@@ -92,7 +92,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           value={formData.phone}
           onChange={(e) => handleInputChange('phone', e.target.value)}
           required
-          className={`${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="h-10 md:h-9 text-base md:text-sm"
         />
       </div>
 
@@ -145,13 +145,13 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           type="button" 
           variant="outline" 
           onClick={handleCancel} 
-          className={`flex-1 ${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="flex-1 h-11 md:h-10 text-base md:text-sm"
         >
           Cancelar
         </Button>
         <Button 
           type="submit" 
-          className={`flex-1 ${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="flex-1 h-11 md:h-10 text-base md:text-sm"
         >
           Guardar Bodegón
         </Button>

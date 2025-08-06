@@ -68,7 +68,7 @@ export function DeleteConfirmationModal({
           onClick={handleConfirm}
           disabled={isLoading}
           variant="destructive"
-          className={`${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="h-11 md:h-10 text-base md:text-sm"
         >
           {isLoading ? (
             <>
@@ -83,7 +83,7 @@ export function DeleteConfirmationModal({
           onClick={handleCancel}
           disabled={isLoading}
           variant="outline"
-          className={`${!isDesktop ? 'h-12 text-base' : ''}`}
+          className="h-11 md:h-10 text-base md:text-sm"
         >
           Cancelar
         </Button>

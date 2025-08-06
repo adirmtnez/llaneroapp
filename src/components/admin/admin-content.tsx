@@ -84,7 +84,7 @@ export function AdminContent() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 items-center">
+        <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 pt-6 sm:pt-4 pb-8 sm:pb-4 items-center">
           {renderView()}
         </div>
       </SidebarInset>

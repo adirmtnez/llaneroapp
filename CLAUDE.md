@@ -155,9 +155,98 @@ git flow hotfix finish 1.0.1
 4. **Commits**: Usar mensajes descriptivos y claros
 5. **Versioning**: Seguir Semantic Versioning (MAJOR.MINOR.PATCH)
 
+## Estándares de Usabilidad Mobile
+
+### Inputs y Botones Mobile-First
+
+Para garantizar una experiencia táctil óptima, seguir estos estándares en toda la aplicación:
+
+#### 📱 Inputs
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-9` (36px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-9 text-base md:text-sm"`
+
+#### 🔘 Botones Principales
+- **Mobile:** `h-11` (44px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-10` (40px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-11 md:h-10 text-base md:text-sm"`
+
+#### 📑 Tabs/Navegación
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-8` (32px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-8 text-base md:text-sm"`
+
+#### ✅ Razones del Estándar
+1. **Touch targets:** 40-44px cumple con recomendaciones Apple/Google
+2. **Accesibilidad:** Elementos más fáciles de tocar
+3. **iOS Safari:** 16px+ previene zoom automático
+4. **Consistencia:** Experiencia uniforme en toda la app
+5. **Responsive:** Elegante en desktop, usable en mobile
+
+#### 📋 Implementado en
+- Página de autenticación (`/auth`)
+- Modal de agregar bodegón
+- Vista inicio (tabs y botones)
+- Vista localidades bodegones (todos los botones)
+- **Usar en:** Todos los formularios futuros
+
+## Templates Disponibles
+
+### 🚀 Uso de Templates
+
+Para agilizar el desarrollo y garantizar consistencia, usa estos templates al crear nuevos componentes:
+
+#### 1. **Modal con Formulario** - `modal-form-template.tsx`
+```tsx
+import { ModalFormTemplate } from "@/components/admin/templates/modal-form-template"
+
+// Ejemplo de uso
+<ModalFormTemplate
+  open={showModal}
+  onOpenChange={setShowModal}
+  title="Agregar Elemento" 
+  description="Completa la información"
+  onSubmit={(data) => console.log(data)}
+/>
+```
+
+#### 2. **Vista de Tabla** - `table-view-template.tsx`  
+```tsx
+import { TableViewTemplate } from "@/components/admin/templates/table-view-template"
+
+// Ejemplo de uso
+<TableViewTemplate
+  title="Gestión de Elementos"
+  data={elementos}
+  onAdd={() => setShowAddModal(true)}
+  onEdit={(item) => setEditItem(item)}
+  onDelete={(item) => setDeleteItem(item)}
+/>
+```
+
+#### 3. **Formulario Simple** - `simple-form-template.tsx`
+```tsx
+import { SimpleFormTemplate } from "@/components/admin/templates/simple-form-template"
+
+// Ejemplo de uso
+<SimpleFormTemplate
+  title="Configuración"
+  description="Ajusta las opciones"
+  onSubmit={(data) => console.log(data)}
+/>
+```
+
+#### ✅ Todos los Templates Incluyen:
+- ✅ **Estándares mobile** aplicados automáticamente
+- ✅ **Responsive design** (Dialog desktop, Drawer mobile) 
+- ✅ **Componentes Shadcn UI** ya integrados
+- ✅ **Validación básica** y manejo de estados
+- ✅ **Patrones consistentes** con el resto de la app
+
 ## Notas Importantes
 
 - Cada sección (Bodegones/Restaurantes) tiene su propia gestión independiente
 - El sistema es completamente SPA sin cambios de URL
 - Mantener consistencia en la estructura de archivos y naming conventions
 - **Usar Git Flow** para todas las nuevas funcionalidades y releases
+- **Aplicar estándares mobile** en todos los nuevos componentes con formularios
