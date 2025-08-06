@@ -9,7 +9,7 @@ export function InicioView() {
   const periodOptions = ['Hoy', 'Esta semana', 'Este mes', 'Este año']
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-[1200px]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard - Inicio</h1>
         

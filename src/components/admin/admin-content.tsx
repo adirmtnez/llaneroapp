@@ -20,6 +20,10 @@ import { RestaurantesSubcatView } from './views/restaurantes/subcategorias-view'
 import { RestaurantesRepartidoresView } from './views/restaurantes/repartidores-view'
 import { RestaurantesEquipoView } from './views/restaurantes/equipo-view'
 import { RestaurantesMetodosPagoView } from './views/restaurantes/metodos-pago-view'
+import { RepartidoresView } from './views/repartidores-view'
+import { EquipoView } from './views/equipo-view'
+import { MetodosPagoView } from './views/metodos-pago-view'
+import { ConfiguracionesView } from './views/configuraciones-view'
 
 export function AdminContent() {
   const [currentView, setCurrentView] = useState('inicio')
@@ -60,6 +64,14 @@ export function AdminContent() {
         return <RestaurantesEquipoView />
       case 'restaurantes-metodos-pago':
         return <RestaurantesMetodosPagoView />
+      case 'repartidores':
+        return <RepartidoresView />
+      case 'equipo':
+        return <EquipoView />
+      case 'metodos-pago':
+        return <MetodosPagoView />
+      case 'configuraciones':
+        return <ConfiguracionesView />
       default:
         return <InicioView />
     }
@@ -72,7 +84,7 @@ export function AdminContent() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex flex-1 flex-col gap-4 p-4 items-center">
           {renderView()}
         </div>
       </SidebarInset>
