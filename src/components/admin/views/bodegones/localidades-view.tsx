@@ -130,7 +130,7 @@ export function BodegonesLocView() {
           </Button>
           <Button 
             size="sm" 
-            className="bg-black text-white hover:bg-gray-800 whitespace-nowrap"
+            className="whitespace-nowrap"
             onClick={() => setShowAddModal(true)}
           >
             <PlusIcon className="w-4 h-4 mr-2" />

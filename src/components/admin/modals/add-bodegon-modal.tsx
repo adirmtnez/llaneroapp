@@ -151,7 +151,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
         </Button>
         <Button 
           type="submit" 
-          className={`flex-1 bg-black text-white hover:bg-gray-800 ${!isDesktop ? 'h-12 text-base' : ''}`}
+          className={`flex-1 ${!isDesktop ? 'h-12 text-base' : ''}`}
         >
           Guardar Bodegón
         </Button>
