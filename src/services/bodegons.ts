@@ -130,18 +130,64 @@ export class BodegonService {
     userId?: string
   ): Promise<{ data: Bodegon | null; error: Error | null }> {
     try {
+      console.log('🏭 BodegonService.create iniciado')
+      console.log('📝 Data recibida:', data)
+      console.log('👤 UserId:', userId)
+      
       const insertData: BodegonInsert = {
         ...data,
         created_by: userId,
         created_date: new Date().toISOString(),
         modified_date: new Date().toISOString(),
       }
+      
+      console.log('📦 Data preparada para inserción:', insertData)
+      
+      // ✅ Verificar token de autenticación
+      console.log('🔄 Intentando obtener session...')
+      try {
+        const { data: { session }, error: sessionError } = await client.auth.getSession()
+        console.log('🔐 Session actual:', session ? 'VÁLIDA' : 'NULL')
+        console.log('🔑 Token actual:', session?.access_token ? 'DISPONIBLE' : 'MISSING')
+        console.log('⏰ Token expira:', session?.expires_at ? new Date(session.expires_at * 1000) : 'N/A')
+        console.log('👤 Usuario en token:', session?.user?.id)
+        
+        if (sessionError) {
+          console.error('❌ Error obteniendo session:', sessionError)
+          return { data: null, error: sessionError }
+        }
+        
+        if (!session) {
+          console.error('❌ No hay sesión válida')
+          return { data: null, error: new Error('No hay sesión válida') }
+        }
+      } catch (authError) {
+        console.error('💥 CRASH en client.auth.getSession():', authError)
+        console.log('🚑 CLIENTE CORRUPTO - Intentando refresh...')
+        
+        // Forzar refresh de la session
+        try {
+          const { data: { session: refreshedSession }, error: refreshError } = await client.auth.refreshSession()
+          console.log('🔄 Session refreshed:', refreshedSession ? 'OK' : 'FAILED')
+          
+          if (refreshError || !refreshedSession) {
+            return { data: null, error: new Error('Cliente de Supabase corrupto, necesita reload') }
+          }
+        } catch (refreshCrash) {
+          console.error('💥 REFRESH también crasheó:', refreshCrash)
+          return { data: null, error: new Error('Cliente de Supabase corrupto, necesita reload') }
+        }
+      }
+      
+      console.log('🚀 Ejecutando insert en Supabase...')
 
       const { data: result, error } = await client
         .from('bodegons')
         .insert(insertData)
         .select()
         .single()
+        
+      console.log('✅ Insert completado:', { result, error })
 
       if (error) {
         return { data: null, error }

@@ -70,11 +70,64 @@ export function BodegonesLocView() {
         filters.search = searchTerm
       }
 
-      console.log('Calling BodegonService.getAll with filters:', filters)
+      console.log('💥 SOLUCIÓN NUCLEAR - Cargando datos con cliente fresco...')
       
-      const { data, error: serviceError } = await executeQuery(
-        (client: SupabaseClient) => BodegonService.getAll(client, filters)
+      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo para cargar datos
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+          console.log('🔑 Token para carga obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
+        }
+      } catch (error) {
+        console.error('❌ Error leyendo token:', error)
+        setError('Error de autenticación')
+        setIsLoading(false)
+        return
+      }
+      
+      if (!accessToken) {
+        setError('Token de autenticación no válido')
+        setIsLoading(false)
+        return
+      }
+      
+      // Crear cliente fresco para carga de datos
+      const { createClient } = await import('@supabase/supabase-js')
+      const loadClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
       )
+      
+      console.log('🚀 Cliente de carga creado, ejecutando query...')
+      
+      // Query directo sin pasar por BodegonService corrupto
+      let query = loadClient.from('bodegons').select('*')
+      
+      // Aplicar filtros
+      if (filters.is_active !== undefined) {
+        query = query.eq('is_active', filters.is_active)
+      }
+      if (filters.search) {
+        query = query.ilike('name', `%${filters.search}%`)
+      }
+      
+      query = query.order('name', { ascending: true })
+      
+      const { data: bodegones, error: serviceError } = await query
+      
+      console.log('✅ Query de bodegones ejecutado:', { bodegones: bodegones?.length, error: serviceError })
       
       if (serviceError) {
         const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
@@ -85,8 +138,38 @@ export function BodegonesLocView() {
         return
       }
 
-      console.log('Bodegones loaded successfully:', data?.length || 0, 'items')
-      setBodegones(data || [])
+      if (!bodegones) {
+        console.log('No bodegones found, setting empty array')
+        setBodegones([])
+        return
+      }
+
+      // ✅ Obtener conteo de productos para cada bodegón (también con cliente fresco)
+      console.log('🔢 Obteniendo conteo de productos...')
+      const transformedData = await Promise.all(
+        bodegones.map(async (bodegon) => {
+          try {
+            const { count, error: countError } = await loadClient
+              .from('bodegon_inventories')
+              .select('*', { count: 'exact', head: true })
+              .eq('bodegon_id', bodegon.id)
+              .eq('is_available_at_bodegon', true)
+
+            if (countError) {
+              console.error('Error counting products for bodegon:', bodegon.id, countError)
+              return { ...bodegon, product_count: 0 }
+            }
+
+            return { ...bodegon, product_count: count || 0 }
+          } catch (err) {
+            console.error('Error in product count for bodegon:', bodegon.id, err)
+            return { ...bodegon, product_count: 0 }
+          }
+        })
+      )
+
+      console.log('Bodegones loaded successfully:', transformedData.length, 'items')
+      setBodegones(transformedData)
       
     } catch (err) {
       const errorMessage = err instanceof Error && err.message === 'Request timeout' 
@@ -168,14 +251,102 @@ export function BodegonesLocView() {
     if (!itemToDelete) return
     
     setIsDeleting(true)
+    console.log('💥 SOLUCIÓN NUCLEAR - Eliminando bodegón con cliente fresco...')
     
     try {
-      const { error: deleteError } = await executeQuery(
-        (client: SupabaseClient) => BodegonService.hardDelete(client, itemToDelete.id)
+      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+          console.log('🔑 Token para eliminación obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
+        }
+      } catch (error) {
+        console.error('❌ Error leyendo token para eliminación:', error)
+        toast.error('Error de autenticación')
+        setIsDeleting(false)
+        return
+      }
+      
+      if (!accessToken) {
+        toast.error('Token de autenticación no válido, recarga la página')
+        setIsDeleting(false)
+        return
+      }
+      
+      // Crear cliente fresco para eliminación
+      const { createClient } = await import('@supabase/supabase-js')
+      const nuclearClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
       )
+      
+      console.log('🚀 Cliente NUCLEAR para eliminación creado')
+      
+      // Obtener bodegón primero para verificar si tiene logo
+      console.log('🔍 Obteniendo datos del bodegón a eliminar:', itemToDelete.id)
+      const { data: bodegon, error: getError } = await nuclearClient
+        .from('bodegons')
+        .select('logo_url')
+        .eq('id', itemToDelete.id)
+        .single()
+
+      if (getError) {
+        console.error('❌ Error obteniendo bodegón:', getError)
+        toast.error('Error al obtener datos del bodegón: ' + getError.message)
+        setIsDeleting(false)
+        return
+      }
+
+      // Eliminar inventarios relacionados primero
+      console.log('🗂️ Eliminando inventarios relacionados...')
+      const { error: inventoryDeleteError } = await nuclearClient
+        .from('bodegon_inventories')
+        .delete()
+        .eq('bodegon_id', itemToDelete.id)
+
+      if (inventoryDeleteError) {
+        console.error('❌ Error eliminando inventarios:', inventoryDeleteError)
+        toast.error('Error al eliminar inventarios: ' + inventoryDeleteError.message)
+        setIsDeleting(false)
+        return
+      }
+
+      // Eliminar logo del storage si existe
+      if (bodegon?.logo_url) {
+        console.log('🖼️ Eliminando logo del storage:', bodegon.logo_url)
+        try {
+          const { S3StorageService } = await import('@/services/s3-storage')
+          await S3StorageService.deleteBodegonLogo(bodegon.logo_url)
+          console.log('✅ Logo eliminado del storage')
+        } catch (logoError) {
+          console.error('⚠️ Error eliminando logo (continúa):', logoError)
+        }
+      }
+
+      // Eliminar bodegón
+      console.log('🚀 Ejecutando eliminación del bodegón...')
+      const { error: deleteError } = await nuclearClient
+        .from('bodegons')
+        .delete()
+        .eq('id', itemToDelete.id)
+      
+      console.log('✅ Eliminación completada:', { deleteError })
       
       if (deleteError) {
         toast.error('Error al eliminar bodegón: ' + deleteError.message)
+        setIsDeleting(false)
         return
       }
 
@@ -185,6 +356,7 @@ export function BodegonesLocView() {
       await loadBodegones()
       setShowDeleteModal(false)
       setItemToDelete(null)
+      
     } catch (error) {
       console.error('Error al eliminar:', error)
       toast.error('Error inesperado al eliminar bodegón')

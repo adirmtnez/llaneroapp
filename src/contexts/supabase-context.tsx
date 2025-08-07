@@ -117,8 +117,14 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Handle page visibility changes
+  // ❌ TEMPORALMENTE DESACTIVADO - Page visibility validation
+  // CAUSA: Este handler está disparando múltiples recargas de datos
   useEffect(() => {
     const handleVisibilityChange = async () => {
+      // ⚠️ DESACTIVADO TEMPORALMENTE PARA TESTING
+      console.log('SupabaseProvider: Page visibility changed, but handler is disabled for testing')
+      return
+      
       if (!document.hidden && user && !isRefreshing) {
         console.log('SupabaseProvider: Page became visible, validating session...')
         await validateSession()

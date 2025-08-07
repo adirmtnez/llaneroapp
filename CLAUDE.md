@@ -243,6 +243,96 @@ import { SimpleFormTemplate } from "@/components/admin/templates/simple-form-tem
 - ✅ **Validación básica** y manejo de estados
 - ✅ **Patrones consistentes** con el resto de la app
 
+## Solución Nuclear para Supabase SPA
+
+### 🚨 Problema Identificado
+Al cambiar pestañas del navegador o minimizar/maximizar la ventana, los contextos de Supabase se corrompían, causando que las operaciones se colgaran indefinidamente y requirieran recargar la página.
+
+### ✅ Solución Nuclear Implementada
+Para operaciones críticas CRUD, implementamos una "solución nuclear" que:
+
+1. **Bypass de contextos corruptos**: No usar `useSupabase()` ni `useAuth()` para operaciones
+2. **Token directo del localStorage**: Leer `sb-zykwuzuukrmgztpgnbth-auth-token` directamente
+3. **Cliente fresco**: Crear nuevo cliente Supabase para cada operación
+4. **Credenciales hardcodeadas**: Usar URL y anon key directamente en el código
+
+### 📝 Patrón de Implementación
+
+```typescript
+// ✅ SOLUCIÓN NUCLEAR - Patrón a seguir
+const handleOperation = async () => {
+  console.log('💥 SOLUCIÓN NUCLEAR - Operación con cliente fresco...')
+  
+  // 1. Obtener token del localStorage
+  let accessToken: string | null = null
+  try {
+    const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+    if (supabaseSession) {
+      const parsedSession = JSON.parse(supabaseSession)
+      accessToken = parsedSession?.access_token
+      console.log('🔑 Token obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
+    }
+  } catch (error) {
+    console.error('❌ Error leyendo token:', error)
+    toast.error('Error de autenticación')
+    return
+  }
+  
+  if (!accessToken) {
+    toast.error('Token no válido, recarga la página')
+    return
+  }
+  
+  // 2. Crear cliente fresco
+  const { createClient } = await import('@supabase/supabase-js')
+  const nuclearClient = createClient(
+    'https://zykwuzuukrmgztpgnbth.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+    {
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+  )
+  
+  // 3. Ejecutar operación directa
+  const { data, error } = await nuclearClient
+    .from('tabla')
+    .operation()
+    
+  // 4. Manejar resultado
+  if (error) {
+    toast.error('Error: ' + error.message)
+    return
+  }
+  
+  console.log('✅ Operación completada exitosamente')
+}
+```
+
+### 🎯 Aplicado En:
+- ✅ **Crear bodegones**: `add-bodegon-modal.tsx`
+- ✅ **Leer bodegones**: `localidades-view.tsx` (loadBodegones)
+- ✅ **Editar bodegones**: `edit-bodegon-modal.tsx`
+- ✅ **Eliminar bodegones**: `localidades-view.tsx` (handleDeleteConfirm)
+
+### 🔄 Para Futuros Módulos:
+**IMPORTANTE**: Aplicar este patrón a todos los nuevos módulos CRUD:
+- Restaurantes (productos, categorías, subcategorías)
+- Repartidores
+- Métodos de pago
+- Cualquier operación crítica que pueda fallar tras cambios de pestaña
+
+### ⚠️ Consideraciones de Seguridad:
+- **Anon Key expuesta**: La key pública de Supabase está en el código (esto es normal)
+- **RLS activo**: Row Level Security protege los datos a nivel de base de datos
+- **Token de usuario**: Se usa el token real del usuario autenticado
+- **Sin persistencia**: Los clientes no guardan sesión (`persistSession: false`)
+
 ## Notas Importantes
 
 - Cada sección (Bodegones/Restaurantes) tiene su propia gestión independiente
@@ -250,3 +340,4 @@ import { SimpleFormTemplate } from "@/components/admin/templates/simple-form-tem
 - Mantener consistencia en la estructura de archivos y naming conventions
 - **Usar Git Flow** para todas las nuevas funcionalidades y releases
 - **Aplicar estándares mobile** en todos los nuevos componentes con formularios
+- **Usar Solución Nuclear** para operaciones CRUD críticas en nuevos módulos

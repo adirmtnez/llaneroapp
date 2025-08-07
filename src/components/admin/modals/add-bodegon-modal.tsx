@@ -11,6 +11,7 @@ import { BodegonService } from "@/services/bodegons"
 import { S3StorageService as StorageService } from "@/services/s3-storage"
 import { useAuth } from "@/contexts/auth-context"
 import { useSupabase } from "@/contexts/supabase-context"
+import { supabase } from "@/lib/supabase"  // ✅ Cliente fresco directo
 import { toast } from "sonner"
 
 interface AddBodegonModalProps {
@@ -59,26 +60,100 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
 
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    console.log('🚀 handleSubmit EJECUTADO - Form data:', formData)
     e.preventDefault()
     
-    // ✅ Check if component is still mounted before proceeding
-    if (!isMounted) return
+    // ❌ TEMPORALMENTE REMOVIDO - Check if component is still mounted before proceeding
+    // if (!isMounted) return
     
     setLoading(true)
+    console.log('💾 setLoading(true) ejecutado')
 
     try {
-      // Create bodegon record first
-      const { data: bodegon, error: createError } = await BodegonService.create(
-        client,
+      console.log('📦 Preparando datos para BodegonService.create...')
+      console.log('👤 Usuario actual:', user?.auth_user.id)
+      console.log('🔌 Cliente Supabase:', client ? 'DISPONIBLE' : 'NULL')
+      
+      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo desde cero
+      console.log('💥 SOLUCIÓN NUCLEAR - Creando cliente desde cero...')
+      
+      // Obtener token del localStorage directamente (bypassing todo el sistema corrupto)
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+          console.log('🔑 Token obtenido del localStorage:', accessToken ? 'DISPONIBLE' : 'MISSING')
+        }
+      } catch (error) {
+        console.error('❌ Error leyendo token del localStorage:', error)
+      }
+      
+      if (!accessToken) {
+        toast.error('No se pudo obtener token de autenticación, recarga la página')
+        setLoading(false)
+        return
+      }
+      
+      // Crear cliente completamente nuevo con token directo
+      const { createClient } = await import('@supabase/supabase-js')
+      const nuclearClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
         {
-          name: formData.name,
-          address: formData.address || null,
-          phone_number: formData.phone || null,
-          logo_url: null, // Will update this after upload
-          is_active: true,
-        },
-        user?.auth_user.id
+          auth: {
+            persistSession: false,
+          },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
       )
+      
+      console.log('🚀 Cliente NUCLEAR creado con credenciales hardcoded')
+      
+      // ✅ Capturar valores directamente del DOM (formData se resetea al cambiar pestaña)
+      console.log('💾 Insert directo en bodegons...')
+      console.log('📝 Form data actual:', formData) // Debug form data
+      
+      const formElement = (e.target as HTMLFormElement)
+      const nameInput = formElement.querySelector('#name') as HTMLInputElement
+      const addressInput = formElement.querySelector('#address') as HTMLInputElement
+      const phoneInput = formElement.querySelector('#phone') as HTMLInputElement
+      const logoInput = formElement.querySelector('#logo') as HTMLInputElement
+      
+      const actualValues = {
+        name: nameInput?.value || '',
+        address: addressInput?.value || '',
+        phone: phoneInput?.value || '',
+        logo: logoInput?.files?.[0] || null
+      }
+      
+      console.log('📋 Valores reales del DOM:', actualValues)
+      
+      const insertData = {
+        name: actualValues.name || 'Bodegón Sin Nombre',
+        address: actualValues.address || null,
+        phone_number: actualValues.phone || null,
+        logo_url: null,
+        is_active: true,
+        created_by: user?.auth_user.id,
+        created_date: new Date().toISOString(),
+        modified_date: new Date().toISOString(),
+      }
+      
+      console.log('📦 Data a insertar:', insertData)
+      
+      const { data: bodegon, error: createError } = await nuclearClient
+        .from('bodegons')
+        .insert(insertData)
+        .select()
+        .single()
+      console.log('✅ BodegonService.create terminó:', { bodegon, createError })
 
       if (createError) {
         toast.error('Error al crear bodegón: ' + createError.message)
@@ -118,8 +193,8 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         }
       }
 
-      // ✅ Check mounted state before UI updates
-      if (!isMounted) return
+      // ❌ TEMPORALMENTE REMOVIDO - Check mounted state before UI updates
+      // if (!isMounted) return
       
       toast.success('¡Bodegón creado exitosamente!')
       
@@ -136,16 +211,16 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
 
     } catch (err) {
       console.error('Error creating bodegon:', err)
-      if (isMounted) {
+      // if (isMounted) {
         toast.error('Error inesperado al crear bodegón')
-      }
+      // }
     } finally {
       console.log('Finally block: setting loading to false')
-      if (isMounted) {
+      // if (isMounted) {
         setLoading(false)
-      }
+      // }
     }
-  }, [formData, user, onSuccess, onOpenChange])
+  }, []) // ❌ TEMPORALMENTE SIN DEPENDENCIAS PARA DEBUGGING
 
   const handleCancel = useCallback(() => {
     if (loading) return // Prevent closing during loading

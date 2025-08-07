@@ -70,26 +70,89 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
   }, [bodegon])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    console.log('🚀 EditBodegon handleSubmit EJECUTADO - Form data:', formData)
     e.preventDefault()
     if (!bodegon) return
     
     setLoading(true)
+    console.log('💾 setLoading(true) ejecutado para edición')
 
     try {
+      console.log('💥 SOLUCIÓN NUCLEAR - Editando bodegón con cliente fresco...')
+      
+      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+          console.log('🔑 Token para edición obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
+        }
+      } catch (error) {
+        console.error('❌ Error leyendo token para edición:', error)
+        toast.error('Error de autenticación')
+        setLoading(false)
+        return
+      }
+      
+      if (!accessToken) {
+        toast.error('Token de autenticación no válido, recarga la página')
+        setLoading(false)
+        return
+      }
+      
+      // Crear cliente fresco para edición
+      const { createClient } = await import('@supabase/supabase-js')
+      const nuclearClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+      )
+      
+      console.log('🚀 Cliente NUCLEAR para edición creado')
+      
+      // ✅ Capturar valores directamente del DOM
+      const formElement = (e.target as HTMLFormElement)
+      const nameInput = formElement.querySelector('#edit-name') as HTMLInputElement
+      const addressInput = formElement.querySelector('#edit-address') as HTMLInputElement
+      const phoneInput = formElement.querySelector('#edit-phone') as HTMLInputElement
+      const logoInput = formElement.querySelector('#edit-logo') as HTMLInputElement
+      
+      const actualValues = {
+        name: nameInput?.value || formData.name || '',
+        address: addressInput?.value || formData.address || '',
+        phone: phoneInput?.value || formData.phone || '',
+        logo: logoInput?.files?.[0] || null
+      }
+      
+      console.log('📋 Valores reales del DOM para edición:', actualValues)
+
       // Update bodegon record
       const updateData: any = {
-        name: formData.name,
-        address: formData.address || null,
-        phone_number: formData.phone || null,
+        name: actualValues.name,
+        address: actualValues.address || null,
+        phone_number: actualValues.phone || null,
         is_active: formData.is_active,
+        modified_date: new Date().toISOString(),
       }
 
+      console.log('📦 Data de actualización preparada:', updateData)
+
       // Upload new logo if provided
-      if (formData.logo) {
+      if (actualValues.logo) {
         console.log('Uploading new logo for bodegon:', bodegon.id)
         const { data: uploadData, error: uploadError } = await StorageService.uploadBodegonLogo(
           bodegon.id,
-          formData.logo
+          actualValues.logo
         )
 
         if (uploadError) {
@@ -99,10 +162,19 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
           return
         } else if (uploadData?.url) {
           updateData.logo_url = uploadData.url
+          console.log('✅ Logo subido exitosamente, URL:', uploadData.url)
         }
       }
 
-      const { error: updateError } = await BodegonService.update(client, bodegon.id, updateData)
+      console.log('🚀 Ejecutando update directo en Supabase...')
+      const { data: result, error: updateError } = await nuclearClient
+        .from('bodegons')
+        .update(updateData)
+        .eq('id', bodegon.id)
+        .select()
+        .single()
+
+      console.log('✅ Update completado:', { result, updateError })
 
       if (updateError) {
         toast.error('Error al actualizar bodegón: ' + updateError.message)

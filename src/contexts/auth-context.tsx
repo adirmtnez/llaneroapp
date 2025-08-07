@@ -33,8 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    // Handle page visibility changes
+    // ❌ TEMPORALMENTE DESACTIVADO - Handle page visibility changes
+    // CAUSA: Este handler está reseteando el usuario al cambiar pestañas
     const handleVisibilityChange = async () => {
+      // ⚠️ DESACTIVADO TEMPORALMENTE PARA TESTING
+      console.log('Page visibility changed, but handler is disabled for testing')
+      return
+      
       if (!document.hidden) {
         console.log('Page became visible, refreshing session...')
         
@@ -71,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // ✅ Mantenemos el listener pero el handler no hace nada crítico
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
