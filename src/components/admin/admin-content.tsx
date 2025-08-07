@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { InicioView } from './views/inicio-view'
@@ -24,9 +24,36 @@ import { RepartidoresView } from './views/repartidores-view'
 import { EquipoView } from './views/equipo-view'
 import { MetodosPagoView } from './views/metodos-pago-view'
 import { ConfiguracionesView } from './views/configuraciones-view'
+import { AuthDebug } from '../debug/auth-debug'
+
 
 export function AdminContent() {
-  const [currentView, setCurrentView] = useState('inicio')
+  const [currentView, setCurrentView] = useState<string | null>(null)
+  const [isViewLoaded, setIsViewLoaded] = useState(false)
+
+  // Save and restore current view from localStorage
+  useEffect(() => {
+    // Restore saved view on component mount
+    const savedView = localStorage.getItem('adminCurrentView')
+    setCurrentView(savedView || 'inicio')
+    setIsViewLoaded(true)
+  }, [])
+
+  // Save current view to localStorage whenever it changes (but not on initial load)
+  useEffect(() => {
+    if (isViewLoaded && currentView) {
+      localStorage.setItem('adminCurrentView', currentView)
+    }
+  }, [currentView, isViewLoaded])
+
+  // Don't render until view is loaded from localStorage
+  if (!isViewLoaded || !currentView) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-muted-foreground">Cargando vista...</div>
+      </div>
+    )
+  }
 
   const renderView = () => {
     switch (currentView) {
@@ -88,6 +115,7 @@ export function AdminContent() {
           {renderView()}
         </div>
       </SidebarInset>
+      <AuthDebug show={process.env.NODE_ENV === 'development'} />
     </>
   )
 }

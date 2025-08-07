@@ -10,12 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, StoreIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { AddBodegonModal } from "../../modals/add-bodegon-modal"
+import { EditBodegonModal } from "../../modals/edit-bodegon-modal"
 import { DeleteConfirmationModal } from "../../modals/delete-confirmation-modal"
 import { BodegonService } from "@/services/bodegons"
 import { BodegonWithDetails } from "@/types/bodegons"
 import { useAuth } from "@/contexts/auth-context"
 import { LoadingSpinner } from "@/components/ui/loading-screen"
 import { toast } from "sonner"
+import { useAuthRestoration } from "@/hooks/use-auth-restoration"
 
 export function BodegonesLocView() {
   const [selectedFilter, setSelectedFilter] = useState('Todos')
@@ -24,8 +26,10 @@ export function BodegonesLocView() {
   const [pageSize, setPageSize] = useState(10)
   const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<{id: string, name: string} | null>(null)
+  const [bodegonToEdit, setBodegonToEdit] = useState<BodegonWithDetails | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [bodegones, setBodegones] = useState<BodegonWithDetails[]>([])
@@ -51,22 +55,46 @@ export function BodegonesLocView() {
       }
 
       console.log('Calling BodegonService.getAll with filters:', filters)
-      const { data, error: serviceError } = await BodegonService.getAll(filters)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      )
+      
+      const servicePromise = BodegonService.getAll(filters)
+      
+      const result = await Promise.race([
+        servicePromise,
+        timeoutPromise
+      ])
+      
+      const { data, error: serviceError } = result
       
       if (serviceError) {
         const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
+        console.error('Service error:', serviceError)
         setError(errorMessage)
         toast.error(errorMessage)
+        setBodegones([])
         return
       }
 
       console.log('Bodegones loaded successfully:', data?.length || 0, 'items')
       setBodegones(data || [])
+      
+      if (!data || data.length === 0) {
+        setError('No se encontraron bodegones')
+      }
+      
     } catch (err) {
-      const errorMessage = 'Error inesperado al cargar bodegones'
+      const errorMessage = err instanceof Error && err.message === 'Request timeout' 
+        ? 'La consulta tardó demasiado tiempo. Intenta de nuevo.'
+        : 'Error inesperado al cargar bodegones'
+      
+      console.error('Error loading bodegones:', err)
       setError(errorMessage)
       toast.error(errorMessage)
-      console.error('Error loading bodegones:', err)
+      setBodegones([])
     } finally {
       console.log('Setting loading to false')
       setIsLoading(false)
@@ -87,6 +115,18 @@ export function BodegonesLocView() {
   useEffect(() => {
     loadBodegones()
   }, [])
+
+  // Use auth restoration hook to handle page visibility
+  useAuthRestoration({
+    onAuthRestored: () => {
+      console.log('Auth restored, reloading bodegones')
+      loadBodegones()
+    },
+    resetStates: () => {
+      setError('')
+    },
+    delay: 1000
+  })
 
   useEffect(() => {
     loadBodegones()
@@ -111,6 +151,11 @@ export function BodegonesLocView() {
   const handlePageSizeChange = (newSize: string) => {
     setPageSize(Number(newSize))
     setCurrentPage(1)
+  }
+
+  const handleEditClick = (bodegon: BodegonWithDetails) => {
+    setBodegonToEdit(bodegon)
+    setShowEditModal(true)
   }
 
   const handleDeleteClick = (bodegon: {id: string, name: string}) => {
@@ -149,6 +194,10 @@ export function BodegonesLocView() {
     loadBodegones() // Reload data
   }
 
+  const handleEditBodegonSuccess = () => {
+    loadBodegones() // Reload data
+  }
+
   return (
     <div className="space-y-4 md:space-y-6 w-full max-w-[1200px]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -158,6 +207,15 @@ export function BodegonesLocView() {
             <div className="flex items-center gap-2 mt-2 text-sm text-red-600">
               <AlertCircleIcon className="w-4 h-4" />
               <span>{error}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadBodegones}
+                disabled={isLoading}
+                className="ml-2 h-6 px-2 text-xs"
+              >
+                {isLoading ? 'Cargando...' : 'Reintentar'}
+              </Button>
             </div>
           )}
         </div>
@@ -341,7 +399,12 @@ export function BodegonesLocView() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Editar</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="cursor-pointer"
+                            onClick={() => handleEditClick(bodegon)}
+                          >
+                            Editar
+                          </DropdownMenuItem>
                           <DropdownMenuItem>Ver productos</DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600 cursor-pointer"
@@ -463,6 +526,13 @@ export function BodegonesLocView() {
         open={showAddModal} 
         onOpenChange={setShowAddModal}
         onSuccess={handleAddBodegonSuccess}
+      />
+
+      <EditBodegonModal 
+        open={showEditModal} 
+        onOpenChange={setShowEditModal}
+        onSuccess={handleEditBodegonSuccess}
+        bodegon={bodegonToEdit}
       />
 
       <DeleteConfirmationModal

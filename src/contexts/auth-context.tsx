@@ -33,7 +33,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    // Handle page visibility changes
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing session...')
+        
+        try {
+          // Always check session when page becomes visible
+          const { data: { session }, error } = await supabase.auth.getSession()
+          
+          if (error) {
+            console.error('Error getting session:', error)
+            setUser(null)
+            setLoading(false)
+            return
+          }
+          
+          if (session?.user) {
+             console.log('Valid session found, loading user profile...')
+             await loadUserProfile(session.user)
+             
+             // Wait a bit to ensure Supabase client is fully updated
+             setTimeout(() => {
+               console.log('Dispatching authRestored event')
+               window.dispatchEvent(new CustomEvent('authRestored'))
+             }, 200)
+           } else {
+             console.log('No valid session found')
+             setUser(null)
+             setLoading(false)
+           }
+        } catch (error) {
+          console.error('Error refreshing session on visibility change:', error)
+          setUser(null)
+          setLoading(false)
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
@@ -120,13 +163,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signOut = async (): Promise<{ error: Error | null }> => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      return { error }
-    } catch (error) {
-      return { error: error as Error }
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Error signing out:', error)
+      throw error
     }
+    
+    // Clear saved admin view when signing out
+    try {
+      localStorage.removeItem('adminCurrentView')
+    } catch (error) {
+      console.error('Error clearing saved view:', error)
+    }
+    
+    setUser(null)
   }
 
   const updateProfile = async (updates: UserProfileUpdate): Promise<{ error: Error | null }> => {

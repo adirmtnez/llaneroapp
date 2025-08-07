@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,17 @@ export function LoginForm({
 
   const { signIn, canAccessAdmin } = useAuth()
   const router = useRouter()
+
+  // Handle auth restoration
+  useEffect(() => {
+    const handleAuthRestored = () => {
+      console.log('Auth restored in LoginForm, resetting loading state')
+      setLoading(false)
+    }
+
+    window.addEventListener('authRestored', handleAuthRestored)
+    return () => window.removeEventListener('authRestored', handleAuthRestored)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

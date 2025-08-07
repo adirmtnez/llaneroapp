@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,17 @@ export function RegisterForm({
 
   const { signUp } = useAuth()
   const router = useRouter()
+
+  // Handle auth restoration
+  useEffect(() => {
+    const handleAuthRestored = () => {
+      console.log('Auth restored in RegisterForm, resetting loading state')
+      setLoading(false)
+    }
+
+    window.addEventListener('authRestored', handleAuthRestored)
+    return () => window.removeEventListener('authRestored', handleAuthRestored)
+  }, [])
 
   const getPasswordStrength = (pwd: string) => {
     if (pwd.length === 0) return { score: 0, label: "" }

@@ -6,24 +6,28 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StoreIcon, Loader2 } from "lucide-react"
 import { BodegonService } from "@/services/bodegons"
 import { S3StorageService as StorageService } from "@/services/s3-storage"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
+import { BodegonWithDetails } from "@/types/bodegons"
 
-interface AddBodegonModalProps {
+interface EditBodegonModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  bodegon: BodegonWithDetails | null
 }
 
-export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonModalProps) {
+export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: EditBodegonModalProps) {
   const [isDesktop, setIsDesktop] = useState(true)
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     phone: "",
+    is_active: true,
     logo: null as File | null
   })
   const [loading, setLoading] = useState(false)
@@ -36,7 +40,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     }
 
     const handleAuthRestored = () => {
-      console.log('Auth restored in AddBodegonModal, resetting loading state')
+      console.log('Auth restored in EditBodegonModal, resetting loading state')
       setLoading(false)
     }
 
@@ -50,40 +54,37 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     }
   }, [])
 
-
+  // Initialize form data when bodegon changes
+  useEffect(() => {
+    if (bodegon) {
+      setFormData({
+        name: bodegon.name || "",
+        address: bodegon.address || "",
+        phone: bodegon.phone_number || "",
+        is_active: bodegon.is_active ?? true,
+        logo: null
+      })
+    }
+  }, [bodegon])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!bodegon) return
+    
     setLoading(true)
 
     try {
-      // Create bodegon record first
-      const { data: bodegon, error: createError } = await BodegonService.create(
-        {
-          name: formData.name,
-          address: formData.address || null,
-          phone_number: formData.phone || null,
-          logo_url: null, // Will update this after upload
-          is_active: true,
-        },
-        user?.auth_user.id
-      )
-
-      if (createError) {
-        toast.error('Error al crear bodegón: ' + createError.message)
-        setLoading(false)
-        return
+      // Update bodegon record
+      const updateData: any = {
+        name: formData.name,
+        address: formData.address || null,
+        phone_number: formData.phone || null,
+        is_active: formData.is_active,
       }
 
-      if (!bodegon) {
-        toast.error('Error: No se pudo obtener el bodegón creado')
-        setLoading(false)
-        return
-      }
-
-      // Upload logo if provided, using the real bodegón ID
+      // Upload new logo if provided
       if (formData.logo) {
-        console.log('Uploading logo for bodegon:', bodegon.id)
+        console.log('Uploading new logo for bodegon:', bodegon.id)
         const { data: uploadData, error: uploadError } = await StorageService.uploadBodegonLogo(
           bodegon.id,
           formData.logo
@@ -92,25 +93,22 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         if (uploadError) {
           console.error('Error uploading logo:', uploadError)
           toast.error('Error al subir logo: ' + uploadError.message)
-          // Bodegón was created but logo failed - this is acceptable
+          setLoading(false)
+          return
         } else if (uploadData?.url) {
-          // Update bodegón with logo URL
-          console.log('Logo uploaded successfully, updating bodegon with URL:', uploadData.url)
-          const { error: updateError } = await BodegonService.update(bodegon.id, { logo_url: uploadData.url })
-          
-          if (updateError) {
-            console.error('Error updating bodegon with logo URL:', updateError)
-            toast.error('Error al actualizar bodegón con logo: ' + updateError.message)
-          } else {
-            console.log('Bodegon updated successfully with logo')
-          }
+          updateData.logo_url = uploadData.url
         }
       }
 
-      toast.success('¡Bodegón creado exitosamente!')
-      
-      // Reset form
-      setFormData({ name: "", address: "", phone: "", logo: null })
+      const { error: updateError } = await BodegonService.update(bodegon.id, updateData)
+
+      if (updateError) {
+        toast.error('Error al actualizar bodegón: ' + updateError.message)
+        setLoading(false)
+        return
+      }
+
+      toast.success('¡Bodegón actualizado exitosamente!')
       
       // Call success callback
       if (onSuccess) {
@@ -121,31 +119,39 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
       onOpenChange(false)
 
     } catch (err) {
-      console.error('Error creating bodegon:', err)
-      toast.error('Error inesperado al crear bodegón')
+      console.error('Error updating bodegon:', err)
+      toast.error('Error inesperado al actualizar bodegón')
     } finally {
       console.log('Finally block: setting loading to false')
       setLoading(false)
     }
-  }, [formData, user, onSuccess, onOpenChange])
+  }, [formData, bodegon, onSuccess, onOpenChange])
 
   const handleCancel = useCallback(() => {
     if (loading) return // Prevent closing during loading
     
     onOpenChange(false)
-    // Reset form
-    setFormData({ name: "", address: "", phone: "", logo: null })
-  }, [loading, onOpenChange])
+    // Reset form to original values
+    if (bodegon) {
+      setFormData({
+        name: bodegon.name || "",
+        address: bodegon.address || "",
+        phone: bodegon.phone_number || "",
+        is_active: bodegon.is_active ?? true,
+        logo: null
+      })
+    }
+  }, [loading, onOpenChange, bodegon])
 
   const formContent = (
     <form onSubmit={handleSubmit} className={`space-y-5 ${!isDesktop ? 'pb-6' : ''}`}>
       <div className="space-y-3">
-        <Label htmlFor="name" className="text-sm font-medium">
+        <Label htmlFor="edit-name" className="text-sm font-medium">
           Nombre <span className="text-red-500">*</span>
         </Label>
         <Input
-          key="name-input"
-          id="name"
+          key="edit-name-input"
+          id="edit-name"
           placeholder="Ej: Bodegón Central"
           value={formData.name}
           onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -155,10 +161,10 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="address" className="text-sm font-medium">Dirección</Label>
+        <Label htmlFor="edit-address" className="text-sm font-medium">Dirección</Label>
         <Input
-          key="address-input"
-          id="address"
+          key="edit-address-input"
+          id="edit-address"
           placeholder="Ej: Av. Principal #123, Ciudad"
           value={formData.address}
           onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
@@ -167,12 +173,12 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="phone" className="text-sm font-medium">
+        <Label htmlFor="edit-phone" className="text-sm font-medium">
           Teléfono <span className="text-red-500">*</span>
         </Label>
         <Input
-          key="phone-input"
-          id="phone"
+          key="edit-phone-input"
+          id="edit-phone"
           placeholder="Ej: +1234567890"
           value={formData.phone}
           onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
@@ -182,10 +188,49 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
       </div>
 
       <div className="space-y-3">
-        <Label htmlFor="logo" className="text-sm font-medium">Logo</Label>
+        <Label htmlFor="edit-active" className="text-sm font-medium">Estado</Label>
+        <Select 
+           value={formData.is_active ? "active" : "inactive"} 
+           onValueChange={(value) => setFormData(prev => ({ ...prev, is_active: value === "active" }))}
+         >
+           <SelectTrigger className="h-10 md:h-9 text-base md:text-sm">
+             <div className="flex items-center gap-2">
+               <div className={`w-2 h-2 rounded-full ${formData.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+               <span>{formData.is_active ? 'Activo' : 'Inactivo'}</span>
+             </div>
+           </SelectTrigger>
+          <SelectContent>
+             <SelectItem value="active">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                 Activo
+               </div>
+             </SelectItem>
+             <SelectItem value="inactive">
+               <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                 Inactivo
+               </div>
+             </SelectItem>
+           </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-3">
+        <Label htmlFor="edit-logo" className="text-sm font-medium">Logo</Label>
+        {bodegon?.logo_url && (
+          <div className="mb-3">
+            <p className="text-xs text-gray-500 mb-2">Logo actual:</p>
+            <img 
+              src={bodegon.logo_url} 
+              alt="Logo actual" 
+              className="w-16 h-16 object-cover rounded-lg border"
+            />
+          </div>
+        )}
         <div className={`relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors cursor-pointer ${!isDesktop ? 'p-8' : ''}`}>
           <input
-            id="logo"
+            id="edit-logo"
             type="file"
             accept="image/*"
             onChange={(e) => setFormData(prev => ({ ...prev, logo: e.target.files?.[0] || null }))}
@@ -214,7 +259,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
                   </svg>
                 </div>
                 <p className="text-sm font-medium text-gray-900 mb-1">
-                  Haz clic para subir una imagen
+                  {bodegon?.logo_url ? 'Cambiar logo' : 'Haz clic para subir una imagen'}
                 </p>
                 <p className="text-xs text-gray-500">
                   PNG, JPG, GIF hasta 10MB
@@ -243,10 +288,10 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Guardando...
+              Actualizando...
             </>
           ) : (
-            'Guardar Bodegón'
+            'Actualizar Bodegón'
           )}
         </Button>
       </div>
@@ -263,14 +308,14 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
                 <StoreIcon className="w-4 h-4 text-gray-600" />
               </div>
               <div>
-                <DialogTitle>Agregar Bodegón</DialogTitle>
+                <DialogTitle>Editar Bodegón</DialogTitle>
                 <DialogDescription>
-                  Completa la información del nuevo bodegón
+                  Modifica la información del bodegón
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
-{formContent}
+          {formContent}
         </DialogContent>
       </Dialog>
     )
@@ -285,15 +330,15 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
               <StoreIcon className="w-5 h-5 text-gray-600" />
             </div>
             <div className="flex-1">
-              <DrawerTitle className="text-lg font-semibold">Agregar Bodegón</DrawerTitle>
+              <DrawerTitle className="text-lg font-semibold">Editar Bodegón</DrawerTitle>
               <DrawerDescription className="text-sm text-gray-600">
-                Completa la información del nuevo bodegón
+                Modifica la información del bodegón
               </DrawerDescription>
             </div>
           </div>
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto p-4">
-{formContent}
+          {formContent}
         </div>
       </DrawerContent>
     </Drawer>

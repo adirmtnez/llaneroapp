@@ -15,39 +15,50 @@ export class BodegonService {
     offset?: number
   }): Promise<{ data: BodegonWithDetails[] | null; error: Error | null }> {
     try {
+      console.log('BodegonService.getAll called with filters:', filters)
+      
       let query = supabase
         .from('bodegons')
         .select('*')
 
       // Apply filters
       if (filters?.is_active !== undefined) {
+        console.log('Applying is_active filter:', filters.is_active)
         query = query.eq('is_active', filters.is_active)
       }
 
       if (filters?.search) {
+        console.log('Applying search filter:', filters.search)
         query = query.ilike('name', `%${filters.search}%`)
       }
 
       if (filters?.limit) {
+        console.log('Applying limit:', filters.limit)
         query = query.limit(filters.limit)
       }
 
       if (filters?.offset) {
+        console.log('Applying offset:', filters.offset)
         query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1)
       }
 
       // Order by name
       query = query.order('name', { ascending: true })
 
+      console.log('Executing bodegons query...')
       const { data: bodegones, error } = await query
 
       if (error) {
+        console.error('Error fetching bodegones:', error)
         return { data: null, error }
       }
 
       if (!bodegones) {
+        console.log('No bodegones found, returning empty array')
         return { data: [], error: null }
       }
+
+      console.log('Found', bodegones.length, 'bodegones, fetching product counts...')
 
       // Get product count for each bodegón using bodegon_inventories
       const transformedData = await Promise.all(
@@ -72,8 +83,10 @@ export class BodegonService {
         })
       )
 
+      console.log('Transformed data ready:', transformedData.length, 'items')
       return { data: transformedData, error: null }
     } catch (error) {
+      console.error('Unexpected error in BodegonService.getAll:', error)
       return { data: null, error: error as Error }
     }
   }
