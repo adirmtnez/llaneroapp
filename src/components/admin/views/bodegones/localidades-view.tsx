@@ -35,6 +35,11 @@ export function BodegonesLocView() {
   const [bodegones, setBodegones] = useState<BodegonWithDetails[]>([])
   const [error, setError] = useState<string>('')
 
+  // Reset error state to show normal empty state
+  useEffect(() => {
+    setError('')
+  }, [])
+
   const { user } = useAuth()
 
   const filterOptions = ['Todos', 'Activos', 'Inactivos']
@@ -66,7 +71,7 @@ export function BodegonesLocView() {
       const result = await Promise.race([
         servicePromise,
         timeoutPromise
-      ])
+      ]) as { data: BodegonWithDetails[] | null; error: Error | null }
       
       const { data, error: serviceError } = result
       
@@ -81,10 +86,6 @@ export function BodegonesLocView() {
 
       console.log('Bodegones loaded successfully:', data?.length || 0, 'items')
       setBodegones(data || [])
-      
-      if (!data || data.length === 0) {
-        setError('No se encontraron bodegones')
-      }
       
     } catch (err) {
       const errorMessage = err instanceof Error && err.message === 'Request timeout' 
