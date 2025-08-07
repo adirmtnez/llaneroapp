@@ -14,6 +14,7 @@ import { BodegonProductWithDetails, ProductStatusFilter } from "@/types/products
 import { useAuth } from "@/contexts/auth-context"
 import { useSupabaseQuery } from "@/contexts/supabase-context"
 import { toast } from "sonner"
+import { AgregarProductoBodegonView } from "./agregar-producto-view"
 
 export function BodegonesProductosTodosView() {
   const [selectedFilters, setSelectedFilters] = useState<ProductStatusFilter[]>([])
@@ -28,6 +29,7 @@ export function BodegonesProductosTodosView() {
   const [categories, setCategories] = useState<{id: string, name: string}[]>([])
   const [subcategories, setSubcategories] = useState<{id: string, name: string, parent_category: string}[]>([])
   const [error, setError] = useState<string>('')
+  const [showAddProduct, setShowAddProduct] = useState(false)
 
   const { user } = useAuth()
   const { isReady, sessionValid } = useSupabaseQuery()
@@ -377,6 +379,10 @@ export function BodegonesProductosTodosView() {
     setCurrentPage(1)
   }
 
+  if (showAddProduct) {
+    return <AgregarProductoBodegonView onBack={() => setShowAddProduct(false)} />
+  }
+
   return (
     <div className="space-y-4 md:space-y-6 w-full max-w-[1200px]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -425,6 +431,7 @@ export function BodegonesProductosTodosView() {
           <Button 
             size="sm" 
             className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
+            onClick={() => setShowAddProduct(true)}
           >
             <PlusIcon className="w-4 h-4 mr-2" />
             Agregar
