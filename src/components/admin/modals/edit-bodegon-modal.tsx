@@ -70,16 +70,12 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
   }, [bodegon])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    console.log('🚀 EditBodegon handleSubmit EJECUTADO - Form data:', formData)
     e.preventDefault()
     if (!bodegon) return
     
     setLoading(true)
-    console.log('💾 setLoading(true) ejecutado para edición')
 
     try {
-      console.log('💥 SOLUCIÓN NUCLEAR - Editando bodegón con cliente fresco...')
-      
       // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
       let accessToken: string | null = null
       try {
@@ -87,10 +83,8 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         if (supabaseSession) {
           const parsedSession = JSON.parse(supabaseSession)
           accessToken = parsedSession?.access_token
-          console.log('🔑 Token para edición obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
         }
       } catch (error) {
-        console.error('❌ Error leyendo token para edición:', error)
         toast.error('Error de autenticación')
         setLoading(false)
         return
@@ -118,8 +112,6 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         }
       )
       
-      console.log('🚀 Cliente NUCLEAR para edición creado')
-      
       // ✅ Capturar valores directamente del DOM
       const formElement = (e.target as HTMLFormElement)
       const nameInput = formElement.querySelector('#edit-name') as HTMLInputElement
@@ -133,8 +125,6 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         phone: phoneInput?.value || formData.phone || '',
         logo: logoInput?.files?.[0] || null
       }
-      
-      console.log('📋 Valores reales del DOM para edición:', actualValues)
 
       // Update bodegon record
       const updateData: any = {
@@ -145,36 +135,28 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         modified_date: new Date().toISOString(),
       }
 
-      console.log('📦 Data de actualización preparada:', updateData)
-
       // Upload new logo if provided
       if (actualValues.logo) {
-        console.log('Uploading new logo for bodegon:', bodegon.id)
         const { data: uploadData, error: uploadError } = await StorageService.uploadBodegonLogo(
           bodegon.id,
           actualValues.logo
         )
 
         if (uploadError) {
-          console.error('Error uploading logo:', uploadError)
           toast.error('Error al subir logo: ' + uploadError.message)
           setLoading(false)
           return
         } else if (uploadData?.url) {
           updateData.logo_url = uploadData.url
-          console.log('✅ Logo subido exitosamente, URL:', uploadData.url)
         }
       }
 
-      console.log('🚀 Ejecutando update directo en Supabase...')
       const { data: result, error: updateError } = await nuclearClient
         .from('bodegons')
         .update(updateData)
         .eq('id', bodegon.id)
         .select()
         .single()
-
-      console.log('✅ Update completado:', { result, updateError })
 
       if (updateError) {
         toast.error('Error al actualizar bodegón: ' + updateError.message)
@@ -193,10 +175,8 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
       onOpenChange(false)
 
     } catch (err) {
-      console.error('Error updating bodegon:', err)
       toast.error('Error inesperado al actualizar bodegón')
     } finally {
-      console.log('Finally block: setting loading to false')
       setLoading(false)
     }
   }, [formData, bodegon, onSuccess, onOpenChange])

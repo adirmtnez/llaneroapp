@@ -50,7 +50,6 @@ export function BodegonesLocView() {
   const loadBodegones = async (isMountedRef?: { current: boolean }) => {
     // Don't load if session is not ready or valid
     if (!isReady || !sessionValid) {
-      console.log('SupabaseProvider not ready or session invalid:', { isReady, sessionValid, sessionState })
       return
     }
     
@@ -58,7 +57,6 @@ export function BodegonesLocView() {
     if (isMountedRef && !isMountedRef.current) return
     
     try {
-      console.log('Loading bodegones...')
       setIsLoading(true)
       setError('')
       
@@ -70,8 +68,6 @@ export function BodegonesLocView() {
         filters.search = searchTerm
       }
 
-      console.log('💥 SOLUCIÓN NUCLEAR - Cargando datos con cliente fresco...')
-      
       // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo para cargar datos
       let accessToken: string | null = null
       try {
@@ -79,10 +75,8 @@ export function BodegonesLocView() {
         if (supabaseSession) {
           const parsedSession = JSON.parse(supabaseSession)
           accessToken = parsedSession?.access_token
-          console.log('🔑 Token para carga obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
         }
       } catch (error) {
-        console.error('❌ Error leyendo token:', error)
         setError('Error de autenticación')
         setIsLoading(false)
         return
@@ -110,8 +104,6 @@ export function BodegonesLocView() {
         }
       )
       
-      console.log('🚀 Cliente de carga creado, ejecutando query...')
-      
       // Query directo sin pasar por BodegonService corrupto
       let query = loadClient.from('bodegons').select('*')
       
@@ -127,11 +119,8 @@ export function BodegonesLocView() {
       
       const { data: bodegones, error: serviceError } = await query
       
-      console.log('✅ Query de bodegones ejecutado:', { bodegones: bodegones?.length, error: serviceError })
-      
       if (serviceError) {
         const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
-        console.error('Service error:', serviceError)
         setError(errorMessage)
         toast.error(errorMessage)
         setBodegones([])
@@ -139,13 +128,11 @@ export function BodegonesLocView() {
       }
 
       if (!bodegones) {
-        console.log('No bodegones found, setting empty array')
         setBodegones([])
         return
       }
 
       // ✅ Obtener conteo de productos para cada bodegón (también con cliente fresco)
-      console.log('🔢 Obteniendo conteo de productos...')
       const transformedData = await Promise.all(
         bodegones.map(async (bodegon) => {
           try {
@@ -156,19 +143,16 @@ export function BodegonesLocView() {
               .eq('is_available_at_bodegon', true)
 
             if (countError) {
-              console.error('Error counting products for bodegon:', bodegon.id, countError)
               return { ...bodegon, product_count: 0 }
             }
 
             return { ...bodegon, product_count: count || 0 }
           } catch (err) {
-            console.error('Error in product count for bodegon:', bodegon.id, err)
             return { ...bodegon, product_count: 0 }
           }
         })
       )
 
-      console.log('Bodegones loaded successfully:', transformedData.length, 'items')
       setBodegones(transformedData)
       
     } catch (err) {
@@ -176,12 +160,10 @@ export function BodegonesLocView() {
         ? 'La consulta tardó demasiado tiempo. Intenta de nuevo.'
         : 'Error inesperado al cargar bodegones'
       
-      console.error('Error loading bodegones:', err)
       setError(errorMessage)
       toast.error(errorMessage)
       setBodegones([])
     } finally {
-      console.log('Setting loading to false')
       setIsLoading(false)
     }
   }
@@ -251,7 +233,6 @@ export function BodegonesLocView() {
     if (!itemToDelete) return
     
     setIsDeleting(true)
-    console.log('💥 SOLUCIÓN NUCLEAR - Eliminando bodegón con cliente fresco...')
     
     try {
       // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
@@ -261,10 +242,8 @@ export function BodegonesLocView() {
         if (supabaseSession) {
           const parsedSession = JSON.parse(supabaseSession)
           accessToken = parsedSession?.access_token
-          console.log('🔑 Token para eliminación obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
         }
       } catch (error) {
-        console.error('❌ Error leyendo token para eliminación:', error)
         toast.error('Error de autenticación')
         setIsDeleting(false)
         return
@@ -292,10 +271,7 @@ export function BodegonesLocView() {
         }
       )
       
-      console.log('🚀 Cliente NUCLEAR para eliminación creado')
-      
       // Obtener bodegón primero para verificar si tiene logo
-      console.log('🔍 Obteniendo datos del bodegón a eliminar:', itemToDelete.id)
       const { data: bodegon, error: getError } = await nuclearClient
         .from('bodegons')
         .select('logo_url')
@@ -303,21 +279,18 @@ export function BodegonesLocView() {
         .single()
 
       if (getError) {
-        console.error('❌ Error obteniendo bodegón:', getError)
         toast.error('Error al obtener datos del bodegón: ' + getError.message)
         setIsDeleting(false)
         return
       }
 
       // Eliminar inventarios relacionados primero
-      console.log('🗂️ Eliminando inventarios relacionados...')
       const { error: inventoryDeleteError } = await nuclearClient
         .from('bodegon_inventories')
         .delete()
         .eq('bodegon_id', itemToDelete.id)
 
       if (inventoryDeleteError) {
-        console.error('❌ Error eliminando inventarios:', inventoryDeleteError)
         toast.error('Error al eliminar inventarios: ' + inventoryDeleteError.message)
         setIsDeleting(false)
         return
@@ -325,24 +298,19 @@ export function BodegonesLocView() {
 
       // Eliminar logo del storage si existe
       if (bodegon?.logo_url) {
-        console.log('🖼️ Eliminando logo del storage:', bodegon.logo_url)
         try {
           const { S3StorageService } = await import('@/services/s3-storage')
           await S3StorageService.deleteBodegonLogo(bodegon.logo_url)
-          console.log('✅ Logo eliminado del storage')
         } catch (logoError) {
-          console.error('⚠️ Error eliminando logo (continúa):', logoError)
+          // Continue even if logo deletion fails
         }
       }
 
       // Eliminar bodegón
-      console.log('🚀 Ejecutando eliminación del bodegón...')
       const { error: deleteError } = await nuclearClient
         .from('bodegons')
         .delete()
         .eq('id', itemToDelete.id)
-      
-      console.log('✅ Eliminación completada:', { deleteError })
       
       if (deleteError) {
         toast.error('Error al eliminar bodegón: ' + deleteError.message)
@@ -358,7 +326,6 @@ export function BodegonesLocView() {
       setItemToDelete(null)
       
     } catch (error) {
-      console.error('Error al eliminar:', error)
       toast.error('Error inesperado al eliminar bodegón')
     } finally {
       setIsDeleting(false)

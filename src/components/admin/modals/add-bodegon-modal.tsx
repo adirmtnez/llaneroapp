@@ -60,34 +60,20 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
 
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    console.log('🚀 handleSubmit EJECUTADO - Form data:', formData)
     e.preventDefault()
-    
-    // ❌ TEMPORALMENTE REMOVIDO - Check if component is still mounted before proceeding
-    // if (!isMounted) return
-    
     setLoading(true)
-    console.log('💾 setLoading(true) ejecutado')
 
     try {
-      console.log('📦 Preparando datos para BodegonService.create...')
-      console.log('👤 Usuario actual:', user?.auth_user.id)
-      console.log('🔌 Cliente Supabase:', client ? 'DISPONIBLE' : 'NULL')
-      
-      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo desde cero
-      console.log('💥 SOLUCIÓN NUCLEAR - Creando cliente desde cero...')
-      
-      // Obtener token del localStorage directamente (bypassing todo el sistema corrupto)
+      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
       let accessToken: string | null = null
       try {
         const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
         if (supabaseSession) {
           const parsedSession = JSON.parse(supabaseSession)
           accessToken = parsedSession?.access_token
-          console.log('🔑 Token obtenido del localStorage:', accessToken ? 'DISPONIBLE' : 'MISSING')
         }
       } catch (error) {
-        console.error('❌ Error leyendo token del localStorage:', error)
+        // Error reading token
       }
       
       if (!accessToken) {
@@ -114,12 +100,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         }
       )
       
-      console.log('🚀 Cliente NUCLEAR creado con credenciales hardcoded')
-      
-      // ✅ Capturar valores directamente del DOM (formData se resetea al cambiar pestaña)
-      console.log('💾 Insert directo en bodegons...')
-      console.log('📝 Form data actual:', formData) // Debug form data
-      
+      // ✅ Capturar valores directamente del DOM
       const formElement = (e.target as HTMLFormElement)
       const nameInput = formElement.querySelector('#name') as HTMLInputElement
       const addressInput = formElement.querySelector('#address') as HTMLInputElement
@@ -133,8 +114,6 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         logo: logoInput?.files?.[0] || null
       }
       
-      console.log('📋 Valores reales del DOM:', actualValues)
-      
       const insertData = {
         name: actualValues.name || 'Bodegón Sin Nombre',
         address: actualValues.address || null,
@@ -146,14 +125,11 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         modified_date: new Date().toISOString(),
       }
       
-      console.log('📦 Data a insertar:', insertData)
-      
       const { data: bodegon, error: createError } = await nuclearClient
         .from('bodegons')
         .insert(insertData)
         .select()
         .single()
-      console.log('✅ BodegonService.create terminó:', { bodegon, createError })
 
       if (createError) {
         toast.error('Error al crear bodegón: ' + createError.message)
@@ -167,34 +143,23 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         return
       }
 
-      // Upload logo if provided, using the real bodegón ID
+      // Upload logo if provided
       if (formData.logo) {
-        console.log('Uploading logo for bodegon:', bodegon.id)
         const { data: uploadData, error: uploadError } = await StorageService.uploadBodegonLogo(
           bodegon.id,
           formData.logo
         )
 
         if (uploadError) {
-          console.error('Error uploading logo:', uploadError)
           toast.error('Error al subir logo: ' + uploadError.message)
-          // Bodegón was created but logo failed - this is acceptable
         } else if (uploadData?.url) {
-          // Update bodegón with logo URL
-          console.log('Logo uploaded successfully, updating bodegon with URL:', uploadData.url)
           const { error: updateError } = await BodegonService.update(client, bodegon.id, { logo_url: uploadData.url })
           
           if (updateError) {
-            console.error('Error updating bodegon with logo URL:', updateError)
             toast.error('Error al actualizar bodegón con logo: ' + updateError.message)
-          } else {
-            console.log('Bodegon updated successfully with logo')
           }
         }
       }
-
-      // ❌ TEMPORALMENTE REMOVIDO - Check mounted state before UI updates
-      // if (!isMounted) return
       
       toast.success('¡Bodegón creado exitosamente!')
       
@@ -210,17 +175,11 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
       onOpenChange(false)
 
     } catch (err) {
-      console.error('Error creating bodegon:', err)
-      // if (isMounted) {
-        toast.error('Error inesperado al crear bodegón')
-      // }
+      toast.error('Error inesperado al crear bodegón')
     } finally {
-      console.log('Finally block: setting loading to false')
-      // if (isMounted) {
-        setLoading(false)
-      // }
+      setLoading(false)
     }
-  }, []) // ❌ TEMPORALMENTE SIN DEPENDENCIAS PARA DEBUGGING
+  }, [formData, user, onSuccess, onOpenChange, client])
 
   const handleCancel = useCallback(() => {
     if (loading) return // Prevent closing during loading

@@ -261,8 +261,6 @@ Para operaciones críticas CRUD, implementamos una "solución nuclear" que:
 ```typescript
 // ✅ SOLUCIÓN NUCLEAR - Patrón a seguir
 const handleOperation = async () => {
-  console.log('💥 SOLUCIÓN NUCLEAR - Operación con cliente fresco...')
-  
   // 1. Obtener token del localStorage
   let accessToken: string | null = null
   try {
@@ -270,10 +268,8 @@ const handleOperation = async () => {
     if (supabaseSession) {
       const parsedSession = JSON.parse(supabaseSession)
       accessToken = parsedSession?.access_token
-      console.log('🔑 Token obtenido:', accessToken ? 'DISPONIBLE' : 'MISSING')
     }
   } catch (error) {
-    console.error('❌ Error leyendo token:', error)
     toast.error('Error de autenticación')
     return
   }
@@ -310,7 +306,7 @@ const handleOperation = async () => {
     return
   }
   
-  console.log('✅ Operación completada exitosamente')
+  // Operación completada exitosamente
 }
 ```
 
