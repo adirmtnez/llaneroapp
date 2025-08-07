@@ -89,8 +89,260 @@ npm run build
 npm run lint
 ```
 
+## Git Flow - Metodología de Ramas
+
+### Configuración
+
+El proyecto utiliza **Git Flow** como metodología de control de versiones con la siguiente configuración:
+
+#### Ramas Principales
+- **`main`** - Rama de producción (releases estables)
+- **`develop`** - Rama de desarrollo (integración de features)
+
+#### Ramas de Soporte
+- **`feature/*`** - Nuevas funcionalidades
+- **`bugfix/*`** - Corrección de bugs en develop
+- **`release/*`** - Preparación de releases
+- **`hotfix/*`** - Corrección urgente en producción
+- **`support/*`** - Ramas de soporte
+
+### Flujo de Trabajo
+
+#### Desarrollo de Features
+```bash
+# Crear nueva feature
+git flow feature start nombre-feature
+
+# Finalizar feature (merge a develop)
+git flow feature finish nombre-feature
+```
+
+#### Releases
+```bash
+# Crear release
+git flow release start 1.0.0
+
+# Finalizar release (merge a main y develop)
+git flow release finish 1.0.0
+```
+
+#### Hotfixes
+```bash
+# Crear hotfix desde main
+git flow hotfix start 1.0.1
+
+# Finalizar hotfix (merge a main y develop)
+git flow hotfix finish 1.0.1
+```
+
+### Comandos Git Flow
+
+| Comando | Descripción |
+|---------|-------------|
+| `git flow init` | Inicializar Git Flow |
+| `git flow feature start <name>` | Crear nueva feature |
+| `git flow feature finish <name>` | Finalizar feature |
+| `git flow release start <version>` | Crear release |
+| `git flow release finish <version>` | Finalizar release |
+| `git flow hotfix start <version>` | Crear hotfix |
+| `git flow hotfix finish <version>` | Finalizar hotfix |
+
+### Convenciones
+
+1. **Features**: Desarrollar en ramas `feature/` desde `develop`
+2. **Releases**: Crear desde `develop`, merge a `main` y `develop`
+3. **Hotfixes**: Crear desde `main`, merge a `main` y `develop`
+4. **Commits**: Usar mensajes descriptivos y claros
+5. **Versioning**: Seguir Semantic Versioning (MAJOR.MINOR.PATCH)
+
+## Estándares de Usabilidad Mobile
+
+### Inputs y Botones Mobile-First
+
+Para garantizar una experiencia táctil óptima, seguir estos estándares en toda la aplicación:
+
+#### 📱 Inputs
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-9` (36px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-9 text-base md:text-sm"`
+
+#### 🔘 Botones Principales (Formularios)
+- **Mobile:** `h-11` (44px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-10` (40px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-11 md:h-10 text-base md:text-sm"`
+- **Uso:** Botones de Submit en formularios, acciones críticas
+
+#### 🔷 Botones Secundarios (Toolbars)
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-8` (32px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-8 text-base md:text-sm"`
+- **Uso:** Botones en toolbars (Exportar, Importar, Agregar, etc.)
+
+#### 📑 Tabs/Navegación
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-8` (32px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-8 text-base md:text-sm"`
+
+#### ✅ Razones del Estándar
+1. **Touch targets:** 40-44px cumple con recomendaciones Apple/Google
+2. **Accesibilidad:** Elementos más fáciles de tocar
+3. **iOS Safari:** 16px+ previene zoom automático
+4. **Consistencia:** Experiencia uniforme en toda la app
+5. **Responsive:** Elegante en desktop, usable en mobile
+
+#### 📋 Implementado en
+- Página de autenticación (`/auth`) - Botones principales (h-11/h-10)
+- Modal de agregar bodegón - Botones principales (h-11/h-10)
+- Vista inicio (tabs y botones) - Tabs/navegación (h-10/h-8)
+- Vista localidades bodegones - Botones toolbar (h-10/h-8)
+- Vista productos bodegones - Botones toolbar (h-10/h-8)
+- Vista productos restaurantes - Botones toolbar (h-10/h-8)
+- **Usar en:** Todos los módulos futuros con estas categorías
+
+## Templates Disponibles
+
+### 🚀 Uso de Templates
+
+Para agilizar el desarrollo y garantizar consistencia, usa estos templates al crear nuevos componentes:
+
+#### 1. **Modal con Formulario** - `modal-form-template.tsx`
+```tsx
+import { ModalFormTemplate } from "@/components/admin/templates/modal-form-template"
+
+// Ejemplo de uso
+<ModalFormTemplate
+  open={showModal}
+  onOpenChange={setShowModal}
+  title="Agregar Elemento" 
+  description="Completa la información"
+  onSubmit={(data) => console.log(data)}
+/>
+```
+
+#### 2. **Vista de Tabla** - `table-view-template.tsx`  
+```tsx
+import { TableViewTemplate } from "@/components/admin/templates/table-view-template"
+
+// Ejemplo de uso
+<TableViewTemplate
+  title="Gestión de Elementos"
+  data={elementos}
+  onAdd={() => setShowAddModal(true)}
+  onEdit={(item) => setEditItem(item)}
+  onDelete={(item) => setDeleteItem(item)}
+/>
+```
+
+#### 3. **Formulario Simple** - `simple-form-template.tsx`
+```tsx
+import { SimpleFormTemplate } from "@/components/admin/templates/simple-form-template"
+
+// Ejemplo de uso
+<SimpleFormTemplate
+  title="Configuración"
+  description="Ajusta las opciones"
+  onSubmit={(data) => console.log(data)}
+/>
+```
+
+#### ✅ Todos los Templates Incluyen:
+- ✅ **Estándares mobile** aplicados automáticamente
+- ✅ **Responsive design** (Dialog desktop, Drawer mobile) 
+- ✅ **Componentes Shadcn UI** ya integrados
+- ✅ **Validación básica** y manejo de estados
+- ✅ **Patrones consistentes** con el resto de la app
+
+## Solución Nuclear para Supabase SPA
+
+### 🚨 Problema Identificado
+Al cambiar pestañas del navegador o minimizar/maximizar la ventana, los contextos de Supabase se corrompían, causando que las operaciones se colgaran indefinidamente y requirieran recargar la página.
+
+### ✅ Solución Nuclear Implementada
+Para operaciones críticas CRUD, implementamos una "solución nuclear" que:
+
+1. **Bypass de contextos corruptos**: No usar `useSupabase()` ni `useAuth()` para operaciones
+2. **Token directo del localStorage**: Leer `sb-zykwuzuukrmgztpgnbth-auth-token` directamente
+3. **Cliente fresco**: Crear nuevo cliente Supabase para cada operación
+4. **Credenciales hardcodeadas**: Usar URL y anon key directamente en el código
+
+### 📝 Patrón de Implementación
+
+```typescript
+// ✅ SOLUCIÓN NUCLEAR - Patrón a seguir
+const handleOperation = async () => {
+  // 1. Obtener token del localStorage
+  let accessToken: string | null = null
+  try {
+    const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+    if (supabaseSession) {
+      const parsedSession = JSON.parse(supabaseSession)
+      accessToken = parsedSession?.access_token
+    }
+  } catch (error) {
+    toast.error('Error de autenticación')
+    return
+  }
+  
+  if (!accessToken) {
+    toast.error('Token no válido, recarga la página')
+    return
+  }
+  
+  // 2. Crear cliente fresco
+  const { createClient } = await import('@supabase/supabase-js')
+  const nuclearClient = createClient(
+    'https://zykwuzuukrmgztpgnbth.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+    {
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    }
+  )
+  
+  // 3. Ejecutar operación directa
+  const { data, error } = await nuclearClient
+    .from('tabla')
+    .operation()
+    
+  // 4. Manejar resultado
+  if (error) {
+    toast.error('Error: ' + error.message)
+    return
+  }
+  
+  // Operación completada exitosamente
+}
+```
+
+### 🎯 Aplicado En:
+- ✅ **Crear bodegones**: `add-bodegon-modal.tsx`
+- ✅ **Leer bodegones**: `localidades-view.tsx` (loadBodegones)
+- ✅ **Editar bodegones**: `edit-bodegon-modal.tsx`
+- ✅ **Eliminar bodegones**: `localidades-view.tsx` (handleDeleteConfirm)
+
+### 🔄 Para Futuros Módulos:
+**IMPORTANTE**: Aplicar este patrón a todos los nuevos módulos CRUD:
+- Restaurantes (productos, categorías, subcategorías)
+- Repartidores
+- Métodos de pago
+- Cualquier operación crítica que pueda fallar tras cambios de pestaña
+
+### ⚠️ Consideraciones de Seguridad:
+- **Anon Key expuesta**: La key pública de Supabase está en el código (esto es normal)
+- **RLS activo**: Row Level Security protege los datos a nivel de base de datos
+- **Token de usuario**: Se usa el token real del usuario autenticado
+- **Sin persistencia**: Los clientes no guardan sesión (`persistSession: false`)
+
 ## Notas Importantes
 
 - Cada sección (Bodegones/Restaurantes) tiene su propia gestión independiente
 - El sistema es completamente SPA sin cambios de URL
 - Mantener consistencia en la estructura de archivos y naming conventions
+- **Usar Git Flow** para todas las nuevas funcionalidades y releases
+- **Aplicar estándares mobile** en todos los nuevos componentes con formularios
+- **Usar Solución Nuclear** para operaciones CRUD críticas en nuevos módulos

@@ -48,6 +48,22 @@ export function NavProjects({
     }
   }
 
+  // Check if current view is related to any parent menu item
+  const isParentActive = (item: any) => {
+    if (!item.items || !currentView) return false
+    
+    // Check if any subitems are active
+    const hasActiveSubitem = item.items.some((subItem: any) => currentView === subItem.viewId)
+    
+    // Check for special cases like agregar/editar views
+    const isProductRelated = item.viewId === 'bodegones-productos' && 
+      (currentView === 'agregar-producto-bodegon' || 
+       currentView === 'editar-producto-bodegon' ||
+       currentView === 'bodegones-productos-todos')
+    
+    return hasActiveSubitem || isProductRelated
+  }
+
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
@@ -56,7 +72,7 @@ export function NavProjects({
           <Collapsible
             key={item.name}
             asChild
-            defaultOpen={false}
+            defaultOpen={isParentActive(item)}
             className="group/collapsible"
           >
             <SidebarMenuItem>
@@ -79,7 +95,7 @@ export function NavProjects({
                           >
                             <button
                               onClick={() => handleItemClick(subItem.viewId)}
-                              className="w-full text-left"
+                              className="w-full text-left cursor-pointer"
                             >
                               <span>{subItem.title}</span>
                             </button>
