@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { StoreIcon } from "lucide-react"
+import Link from 'next/link'
+import Image from 'next/image'
 import { LoginForm } from "@/components/login-form"
 import { RegisterForm } from "@/components/register-form"
 import { Button } from "@/components/ui/button"
@@ -25,25 +26,29 @@ export default function AuthPage() {
       <div className="flex flex-col gap-4 p-6 md:p-10">
         {/* Logo en desktop - arriba izquierda */}
         <div className="hidden md:flex justify-start">
-          <a href="/" className="flex items-center">
-            <img 
+          <Link href="/" className="flex items-center">
+            <Image 
               src="https://zykwuzuukrmgztpgnbth.supabase.co/storage/v1/object/public/adminapp/Llanero%20Logo.png"
               alt="LlaneroBodegón"
+              width={120}
+              height={60}
               className="w-[120px] h-auto"
             />
-          </a>
+          </Link>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">
             {/* Logo en mobile - encima de tabs */}
             <div className="flex md:hidden justify-center mb-8">
-              <a href="/" className="flex items-center">
-                <img 
+              <Link href="/" className="flex items-center">
+                <Image 
                   src="https://zykwuzuukrmgztpgnbth.supabase.co/storage/v1/object/public/adminapp/Llanero%20Logo.png"
                   alt="LlaneroBodegón"
+                  width={120}
+                  height={60}
                   className="w-[120px] h-auto"
                 />
-              </a>
+              </Link>
             </div>
             <div className="flex mb-6 bg-muted rounded-lg p-1">
               <Button
@@ -68,10 +73,11 @@ export default function AuthPage() {
         </div>
       </div>
       <div className="relative hidden lg:block">
-        <img
+        <Image
           src="https://zykwuzuukrmgztpgnbth.supabase.co/storage/v1/object/public/adminapp/img_03.png"
           alt="Background"
-          className="absolute inset-0 h-full w-full object-cover"
+          fill
+          className="object-cover"
         />
       </div>
     </div>

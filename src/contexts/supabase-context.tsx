@@ -164,7 +164,7 @@ export function useSupabaseQuery() {
   const { client, sessionState, isReady } = useSupabase()
   
   const executeQuery = async <T>(
-    queryFn: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>
+    queryFn: (client: SupabaseClient) => Promise<{ data: T | null; error: Error | null }>
   ): Promise<{ data: T | null; error: Error | null }> => {
     // Wait for session to be ready
     if (!isReady) {
