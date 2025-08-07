@@ -13,10 +13,10 @@ import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizon
 
 interface TableViewTemplateProps {
   title: string
-  data: any[]
+  data: Record<string, unknown>[]
   onAdd: () => void
-  onEdit: (item: any) => void
-  onDelete: (item: any) => void
+  onEdit: (item: Record<string, unknown>) => void
+  onDelete: (item: Record<string, unknown>) => void
 }
 
 export function TableViewTemplate({ title, data, onAdd, onEdit, onDelete }: TableViewTemplateProps) {

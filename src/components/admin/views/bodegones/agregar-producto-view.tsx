@@ -476,7 +476,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         ...(productToEdit ? { modified_date: new Date().toISOString() } : { created_by: user.auth_user.id })
       }
 
-      let productResult: any
+      let productResult: Record<string, unknown> | null = null
 
       if (productToEdit) {
         // Update existing product

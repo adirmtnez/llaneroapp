@@ -78,7 +78,7 @@ export class StorageService {
   static async listFiles(
     bucketName: string,
     folderPath: string = ''
-  ): Promise<{ data: any[] | null; error: Error | null }> {
+  ): Promise<{ data: Record<string, unknown>[] | null; error: Error | null }> {
     try {
       const { data, error } = await supabase.storage
         .from(bucketName)

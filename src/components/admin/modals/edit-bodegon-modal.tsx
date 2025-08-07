@@ -127,7 +127,7 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
       }
 
       // Update bodegon record
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         name: actualValues.name,
         address: actualValues.address || null,
         phone_number: actualValues.phone || null,

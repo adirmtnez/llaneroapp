@@ -13,7 +13,7 @@ import { Eye, EyeOff } from "lucide-react"
 interface SimpleFormTemplateProps {
   title: string
   description?: string
-  onSubmit: (data: any) => void
+  onSubmit: (data: Record<string, unknown>) => void
 }
 
 export function SimpleFormTemplate({ title, description, onSubmit }: SimpleFormTemplateProps) {

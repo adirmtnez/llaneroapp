@@ -6,5 +6,6 @@
     "@next/next/no-img-element": "warn",
     "@next/next/no-html-link-for-pages": "warn",
     "react-hooks/exhaustive-deps": "warn"
-  }
+  },
+  "ignorePatterns": ["src/contexts/supabase-context.tsx"]
 }

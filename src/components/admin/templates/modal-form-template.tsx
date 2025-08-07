@@ -13,7 +13,7 @@ interface ModalFormTemplateProps {
   onOpenChange: (open: boolean) => void
   title: string
   description: string
-  onSubmit: (data: any) => void
+  onSubmit: (data: Record<string, unknown>) => void
 }
 
 export function ModalFormTemplate({ 

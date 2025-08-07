@@ -49,11 +49,11 @@ export function NavProjects({
   }
 
   // Check if current view is related to any parent menu item
-  const isParentActive = (item: any) => {
+  const isParentActive = (item: { items?: { viewId: string }[]; viewId?: string }) => {
     if (!item.items || !currentView) return false
     
     // Check if any subitems are active
-    const hasActiveSubitem = item.items.some((subItem: any) => currentView === subItem.viewId)
+    const hasActiveSubitem = item.items.some((subItem: { viewId: string }) => currentView === subItem.viewId)
     
     // Check for special cases like agregar/editar views
     const isProductRelated = item.viewId === 'bodegones-productos' && 

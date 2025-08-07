@@ -60,7 +60,7 @@ export function BodegonesLocView() {
       setIsLoading(true)
       setError('')
       
-      const filters: any = {}
+      const filters: Record<string, unknown> = {}
       if (selectedFilter !== 'Todos') {
         filters.is_active = selectedFilter === 'Activos'
       }
