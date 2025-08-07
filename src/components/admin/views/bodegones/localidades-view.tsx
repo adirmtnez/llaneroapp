@@ -17,7 +17,6 @@ import { BodegonWithDetails } from "@/types/bodegons"
 import { useAuth } from "@/contexts/auth-context"
 import { LoadingSpinner } from "@/components/ui/loading-screen"
 import { toast } from "sonner"
-import { useSupabaseQuery } from "@/contexts/supabase-context"
 import { SupabaseClient } from "@supabase/supabase-js"
 
 export function BodegonesLocView() {
@@ -42,7 +41,6 @@ export function BodegonesLocView() {
   }, [])
 
   const { user } = useAuth()
-  const { executeQuery, isReady, sessionValid, sessionState } = useSupabaseQuery()
 
   const filterOptions = ['Todos', 'Activos', 'Inactivos']
 

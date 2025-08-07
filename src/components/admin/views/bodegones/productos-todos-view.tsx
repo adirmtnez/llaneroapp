@@ -12,7 +12,6 @@ import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizon
 import { useState, useMemo, useEffect } from "react"
 import { BodegonProductWithDetails, ProductStatusFilter } from "@/types/products"
 import { useAuth } from "@/contexts/auth-context"
-import { useSupabaseQuery } from "@/contexts/supabase-context"
 import { toast } from "sonner"
 import { AgregarProductoBodegonView } from "./agregar-producto-view"
 import { DeleteConfirmationModal } from '@/components/admin/modals/delete-confirmation-modal'
@@ -58,7 +57,6 @@ export function BodegonesProductosTodosView() {
   const [productToEdit, setProductToEdit] = useState<BodegonProductWithDetails | null>(null)
 
   const { user } = useAuth()
-  const { isReady, sessionValid } = useSupabaseQuery()
 
   const filterOptions: ProductStatusFilter[] = ['Activos', 'Inactivos', 'En Descuento', 'En Promoción']
 

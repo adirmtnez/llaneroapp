@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { Eye, EyeOff, X } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 
 interface ModalFormTemplateProps {
   open: boolean

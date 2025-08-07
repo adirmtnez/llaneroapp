@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PlusIcon, MoreHorizontalIcon } from 'lucide-react'
 import { AgregarProductoBodegonView } from './agregar-producto-view'
-import { useSupabaseQuery } from '@/contexts/supabase-context'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { DeleteConfirmationModal } from '@/components/admin/modals/delete-confirmation-modal'
@@ -42,7 +41,6 @@ export function BodegonesProdView() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
-  const supabaseQuery = useSupabaseQuery()
 
   const handleViewChange = (view: string) => {
     if (view === 'bodegones-productos' || view === 'productos') {

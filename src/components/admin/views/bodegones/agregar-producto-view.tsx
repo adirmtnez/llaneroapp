@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ArrowLeftIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { useSupabaseQuery } from "@/contexts/supabase-context"
 import { SupabaseClient } from "@supabase/supabase-js"
 import { toast } from "sonner"
 
@@ -107,12 +106,9 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
   const [subcategoryPopoverOpen, setSubcategoryPopoverOpen] = useState(false)
 
   const { user } = useAuth()
-  const { executeQuery } = useSupabaseQuery()
-  const { isReady, sessionValid } = useSupabaseQuery()
 
   // Load categories - Nuclear Solution
   const loadCategories = async () => {
-    if (!isReady || !sessionValid) return
 
     try {
       // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md

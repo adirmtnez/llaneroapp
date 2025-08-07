@@ -3,17 +3,12 @@
 import * as React from "react"
 import {
   Home,
-  Store,
-  Building2,
   Users,
   UserCheck,
   CreditCard,
-  Settings,
   MapPin,
   ShoppingBag,
   Package,
-  Tags,
-  Hash,
   GalleryVerticalEnd,
 } from "lucide-react"
 
