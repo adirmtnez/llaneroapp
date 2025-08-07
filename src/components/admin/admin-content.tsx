@@ -24,7 +24,7 @@ import { RepartidoresView } from './views/repartidores-view'
 import { EquipoView } from './views/equipo-view'
 import { MetodosPagoView } from './views/metodos-pago-view'
 import { ConfiguracionesView } from './views/configuraciones-view'
-
+import { AdminBreadcrumbs } from './breadcrumbs'
 
 
 export function AdminContent() {
@@ -108,8 +108,9 @@ export function AdminContent() {
     <>
       <AppSidebar currentView={currentView} onViewChange={setCurrentView} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
           <SidebarTrigger className="-ml-1" />
+          <AdminBreadcrumbs currentView={currentView} onViewChange={setCurrentView} />
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 pt-6 sm:pt-4 pb-8 sm:pb-4 items-center">
           {renderView()}
