@@ -15,6 +15,27 @@ import { useAuth } from "@/contexts/auth-context"
 import { useSupabaseQuery } from "@/contexts/supabase-context"
 import { toast } from "sonner"
 import { AgregarProductoBodegonView } from "./agregar-producto-view"
+import { DeleteConfirmationModal } from '@/components/admin/modals/delete-confirmation-modal'
+import { supabase } from '@/lib/supabase'
+
+interface Product {
+  id: string
+  name: string
+  sku?: string
+  description?: string
+  price: number
+  is_active_product?: boolean
+  created_date: string
+  image_gallery_urls?: string[]
+  bar_code?: string
+  category_id?: string
+  subcategory_id?: string
+  is_discount?: boolean
+  is_promo?: boolean
+  discounted_price?: number
+  created_by?: string
+  modified_date?: string
+}
 
 export function BodegonesProductosTodosView() {
   const [selectedFilters, setSelectedFilters] = useState<ProductStatusFilter[]>([])
@@ -30,6 +51,11 @@ export function BodegonesProductosTodosView() {
   const [subcategories, setSubcategories] = useState<{id: string, name: string, parent_category: string}[]>([])
   const [error, setError] = useState<string>('')
   const [showAddProduct, setShowAddProduct] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showEditProduct, setShowEditProduct] = useState(false)
+  const [productToEdit, setProductToEdit] = useState<BodegonProductWithDetails | null>(null)
 
   const { user } = useAuth()
   const { isReady, sessionValid } = useSupabaseQuery()
@@ -298,6 +324,50 @@ export function BodegonesProductosTodosView() {
     }
   }
 
+  const handleDeleteClick = (product: Product) => {
+    setProductToDelete(product)
+    setShowDeleteModal(true)
+  }
+
+  const handleEditClick = (product: BodegonProductWithDetails) => {
+    setProductToEdit(product)
+    setShowEditProduct(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return
+    
+    try {
+      setDeletingId(productToDelete.id)
+
+      // First delete associated bodegon_inventories
+      const { error: inventoryError } = await supabase
+        .from('bodegon_inventories')
+        .delete()
+        .eq('product_id', productToDelete.id)
+
+      if (inventoryError) throw inventoryError
+
+      // Then delete the product
+      const { error: productError } = await supabase
+        .from('bodegon_products')
+        .delete()
+        .eq('id', productToDelete.id)
+
+      if (productError) throw productError
+
+      toast.success('Producto eliminado exitosamente')
+      loadProducts() // Reload the products list
+      setShowDeleteModal(false)
+      setProductToDelete(null)
+    } catch (error) {
+      console.error('Error deleting product:', error)
+      toast.error('Error al eliminar el producto')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   // Load categories and subcategories when session is ready
   useEffect(() => {
     let isMounted = true
@@ -379,8 +449,16 @@ export function BodegonesProductosTodosView() {
     setCurrentPage(1)
   }
 
-  if (showAddProduct) {
-    return <AgregarProductoBodegonView onBack={() => setShowAddProduct(false)} />
+  if (showAddProduct || showEditProduct) {
+    return <AgregarProductoBodegonView 
+      onBack={() => {
+        setShowAddProduct(false)
+        setShowEditProduct(false)
+        setProductToEdit(null)
+      }} 
+      onViewChange={() => {}} 
+      productToEdit={productToEdit}
+    />
   }
 
   return (
@@ -743,11 +821,26 @@ export function BodegonesProductosTodosView() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="cursor-pointer">
+                          <DropdownMenuItem 
+                            className="cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleEditClick(product)
+                            }}
+                          >
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 cursor-pointer">
-                            Eliminar
+                          <DropdownMenuItem 
+                            className="text-red-600 cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteClick(product)
+                            }}
+                            disabled={deletingId === product.id}
+                          >
+                            {deletingId === product.id ? 'Eliminando...' : 'Eliminar'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -858,6 +951,15 @@ export function BodegonesProductosTodosView() {
           )}
         </CardContent>
       </Card>
+
+      <DeleteConfirmationModal
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        itemName={productToDelete?.name || ""}
+        itemType="producto"
+        onConfirm={handleDeleteConfirm}
+        isLoading={deletingId !== null}
+      />
     </div>
   )
 }

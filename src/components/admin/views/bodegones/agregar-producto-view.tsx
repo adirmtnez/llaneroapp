@@ -9,10 +9,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ArrowLeftIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useSupabaseQuery } from "@/contexts/supabase-context"
+import { SupabaseClient } from "@supabase/supabase-js"
 import { toast } from "sonner"
+
+interface Product {
+  id: string
+  name: string
+  sku: string | null
+  description: string | null
+  price: number
+  is_active_product: boolean | null
+  created_date: string
+  image_gallery_urls: string[] | null
+  bar_code: string | null
+  category_id: string | null
+  subcategory_id: string | null
+  is_discount: boolean | null
+  is_promo: boolean | null
+  discounted_price: number | null
+  created_by: string | null
+  modified_date: string | null
+}
 
 interface Category {
   id: string
@@ -24,7 +45,36 @@ interface Bodegon {
   name: string
 }
 
-export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
+interface BodegonProductWithDetails {
+  id: string
+  name: string
+  sku?: string
+  description?: string
+  price: number
+  is_active_product?: boolean
+  created_date: string
+  image_gallery_urls?: string[]
+  bar_code?: string
+  category_id?: string
+  subcategory_id?: string
+  is_discount?: boolean
+  is_promo?: boolean
+  discounted_price?: number
+  created_by?: string
+  modified_date?: string
+  category_name?: string
+  subcategory_name?: string
+  inventory_count?: number
+  available_at_bodegons?: string[]
+}
+
+interface AgregarProductoBodegonViewProps {
+  onBack: () => void
+  onViewChange: (view: string) => void
+  productToEdit?: BodegonProductWithDetails | null
+}
+
+export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit }: AgregarProductoBodegonViewProps) {
   // Form states
   const [formData, setFormData] = useState({
     name: '',
@@ -46,10 +96,18 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
   const [bodegones, setBodegones] = useState<Bodegon[]>([])
   const [selectedBodegones, setSelectedBodegones] = useState<string[]>([])
   const [images, setImages] = useState<File[]>([])
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newSubcategoryName, setNewSubcategoryName] = useState('')
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [isCreatingSubcategory, setIsCreatingSubcategory] = useState(false)
+  const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false)
+  const [subcategoryPopoverOpen, setSubcategoryPopoverOpen] = useState(false)
 
   const { user } = useAuth()
+  const { executeQuery } = useSupabaseQuery()
   const { isReady, sessionValid } = useSupabaseQuery()
 
   // Load categories
@@ -165,6 +223,93 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
     }
   }, [isReady, sessionValid])
 
+  // Load product bodegones when editing
+  const loadProductBodegones = async (productId: string) => {
+    if (!isReady || !sessionValid) return
+
+    try {
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+        }
+      } catch (error) {
+        return
+      }
+      
+      if (!accessToken) return
+
+      const { createClient } = await import('@supabase/supabase-js')
+      const loadClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0NzI3NjQsImV4cCI6MjA1MDA0ODc2NH0.Ej8Uy8Ej8Uy8Ej8Uy8Ej8Uy8Ej8Uy8Ej8Uy8Ej8Uy8',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          },
+          db: { schema: 'public' }
+        }
+      )
+
+      const { data: inventoryData } = await loadClient
+        .from('bodegon_inventories')
+        .select('bodegon_id')
+        .eq('product_id', productId)
+
+      if (inventoryData) {
+        const bodegonIds = inventoryData.map(item => item.bodegon_id)
+        setSelectedBodegones(bodegonIds)
+      }
+
+    } catch (error) {
+      console.error('Error loading product bodegones:', error)
+    }
+  }
+
+  // Pre-populate form when editing
+  useEffect(() => {
+    if (productToEdit && categories.length > 0) {
+      setFormData({
+        name: productToEdit.name || '',
+        sku: productToEdit.sku || '',
+        bar_code: productToEdit.bar_code || '',
+        description: productToEdit.description || '',
+        price: productToEdit.price?.toString() || '',
+        category_id: productToEdit.category_id || '',
+        subcategory_id: productToEdit.subcategory_id || '',
+        is_active_product: productToEdit.is_active_product ?? true,
+        is_discount: productToEdit.is_discount ?? false,
+        is_promo: productToEdit.is_promo ?? false,
+        discounted_price: productToEdit.discounted_price?.toString() || ''
+      })
+      
+      // Load existing images
+      if (productToEdit.image_gallery_urls && productToEdit.image_gallery_urls.length > 0) {
+        setImages([])
+        setExistingImageUrls(productToEdit.image_gallery_urls)
+      } else {
+        setExistingImageUrls([])
+      }
+      
+      // Load subcategories if category is selected
+      if (productToEdit.category_id) {
+        loadSubcategories(productToEdit.category_id)
+      }
+      
+      // Load associated bodegones
+      loadProductBodegones(productToEdit.id)
+    } else if (!productToEdit) {
+      // Clear existing images when not editing
+      setExistingImageUrls([])
+    }
+  }, [productToEdit?.id, categories.length, isReady, sessionValid])
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -195,6 +340,23 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
   }
 
   const handleCancel = () => {
+    // Reset form state
+    setFormData({
+      name: '',
+      sku: '',
+      bar_code: '',
+      description: '',
+      price: '',
+      category_id: '',
+      subcategory_id: '',
+      is_active_product: true,
+      is_discount: false,
+      is_promo: false,
+      discounted_price: ''
+    })
+    setImages([])
+    setExistingImageUrls([])
+    setSelectedBodegones([])
     onBack()
   }
 
@@ -208,6 +370,11 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
       return
     }
 
+    if (!formData.sku.trim()) {
+      toast.error('El SKU es obligatorio')
+      return
+    }
+
     if (!formData.price || parseFloat(formData.price) <= 0) {
       toast.error('El precio debe ser mayor a 0')
       return
@@ -218,16 +385,226 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
       return
     }
 
+    if (!user?.auth_user.id) {
+      toast.error('Usuario no autenticado')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      // Here would go the actual save logic
-      toast.success('Producto agregado exitosamente')
-      onBack()
+      // Upload new images first if any
+      let newImageUrls: string[] = []
+      if (images.length > 0) {
+        // For now, we'll create placeholder URLs
+        // In a real implementation, you'd upload to S3 or similar
+        newImageUrls = images.map((_, index) => `placeholder-image-${Date.now()}-${index}.jpg`)
+      }
+
+      // Combine existing images with new images
+      const allImageUrls = [...existingImageUrls, ...newImageUrls]
+
+      // Prepare product data
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        image_gallery_urls: allImageUrls.length > 0 ? allImageUrls : null,
+        bar_code: formData.bar_code.trim() || null,
+        sku: formData.sku.trim() || null,
+        category_id: formData.category_id || null,
+        subcategory_id: formData.subcategory_id || null,
+        price: parseFloat(formData.price),
+        is_active_product: formData.is_active_product,
+        is_discount: formData.is_discount,
+        is_promo: formData.is_promo,
+        discounted_price: formData.discounted_price ? parseFloat(formData.discounted_price) : null,
+        ...(productToEdit ? { modified_by: user.auth_user.id } : { created_by: user.auth_user.id })
+      }
+
+      let productResult: any
+
+      if (productToEdit) {
+        // Update existing product
+        const { data: updateResult, error: productError } = await executeQuery(
+          (client: SupabaseClient) => client
+            .from('bodegon_products')
+            .update(productData)
+            .eq('id', productToEdit.id)
+            .select()
+            .single()
+        )
+        
+        if (productError) {
+          if (productError.message.includes('duplicate key value violates unique constraint "products_sku_key"')) {
+            toast.error('Este SKU ya está en uso por otro producto. Por favor, ingresa un SKU diferente.')
+            setIsSubmitting(false)
+            return
+          }
+          throw productError
+        }
+        
+        productResult = updateResult
+      } else {
+        // Insert new product
+        const { data: insertResult, error: productError } = await executeQuery(
+          (client: SupabaseClient) => client
+            .from('bodegon_products')
+            .insert(productData)
+            .select()
+            .single()
+        )
+        
+        if (productError) {
+          if (productError.message.includes('duplicate key value violates unique constraint "products_sku_key"')) {
+            toast.error('Este SKU ya está en uso por otro producto. Por favor, ingresa un SKU diferente.')
+            setIsSubmitting(false)
+            return
+          }
+          if (productError.message.includes('null value in column "sku"')) {
+            toast.error('El SKU es obligatorio. Por favor, ingresa un SKU para el producto.')
+            setIsSubmitting(false)
+            return
+          }
+          throw productError
+        }
+        
+        productResult = insertResult
+      }
+
+      // Handle inventory entries for selected bodegones
+      if (productToEdit) {
+        // For editing, first delete existing inventory entries
+        const { error: deleteInventoryError } = await executeQuery(
+          (client: SupabaseClient) => client
+            .from('bodegon_inventories')
+            .delete()
+            .eq('product_id', productToEdit.id)
+        )
+        
+        if (deleteInventoryError) throw deleteInventoryError
+      }
+
+      // Create new inventory entries for selected bodegones
+      const inventoryEntries = selectedBodegones.map(bodegonId => ({
+        product_id: productResult.id,
+        bodegon_id: bodegonId,
+        is_available_at_bodegon: true,
+        created_by: user.auth_user.id,
+        modified_date: new Date().toISOString()
+      }))
+
+      const { error: inventoryError } = await executeQuery(
+        (client: SupabaseClient) => client
+          .from('bodegon_inventories')
+          .insert(inventoryEntries)
+      )
+
+      if (inventoryError) throw inventoryError
+
+      toast.success(productToEdit ? 'Producto actualizado exitosamente' : 'Producto agregado exitosamente')
+      
+      // Reset form only when creating new product
+      if (!productToEdit) {
+        setFormData({
+          name: '',
+          sku: '',
+          bar_code: '',
+          description: '',
+          price: '',
+          category_id: '',
+          subcategory_id: '',
+          is_active_product: true,
+          is_discount: false,
+          is_promo: false,
+          discounted_price: ''
+        })
+        setImages([])
+        setExistingImageUrls([])
+        setSelectedBodegones([])
+      }
+      
+      // Navigate to products view
+      if (typeof onViewChange === 'function') {
+        onViewChange('bodegones-productos')
+      } else {
+        console.error('onViewChange is not a function:', typeof onViewChange)
+      }
     } catch (error) {
-      toast.error('Error al agregar el producto')
+      console.error(productToEdit ? 'Error updating product:' : 'Error creating product:', error)
+      toast.error(productToEdit ? 'Error al actualizar el producto' : 'Error al agregar el producto')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim() || !user?.auth_user.id) return
+
+    setIsCreatingCategory(true)
+    try {
+      const { data, error } = await executeQuery(
+        (client: SupabaseClient) => client
+          .from('bodegon_categories')
+          .insert({
+            name: newCategoryName.trim(),
+            is_active: true,
+            created_by: user.auth_user.id
+          })
+          .select()
+          .single()
+      )
+
+      if (error) throw error
+
+      // Actualizar la lista de categorías
+      setCategories(prev => [...prev, data])
+      
+      // Limpiar el formulario y cerrar el popover
+      setNewCategoryName('')
+      setCategoryPopoverOpen(false)
+      
+      toast.success('Categoría creada exitosamente')
+    } catch (error) {
+      console.error('Error creating category:', error)
+      toast.error('Error al crear la categoría')
+    } finally {
+      setIsCreatingCategory(false)
+    }
+  }
+
+  const handleCreateSubcategory = async () => {
+    if (!newSubcategoryName.trim() || !user?.auth_user.id || !formData.category_id) return
+
+    setIsCreatingSubcategory(true)
+    try {
+      const { data, error } = await executeQuery(
+        (client: SupabaseClient) => client
+          .from('bodegon_subcategories')
+          .insert({
+            name: newSubcategoryName.trim(),
+            parent_category: formData.category_id,
+            is_active: true,
+            created_by: user.auth_user.id
+          })
+          .select()
+          .single()
+      )
+
+      if (error) throw error
+
+      // Actualizar la lista de subcategorías
+      setSubcategories(prev => [...prev, data])
+      
+      // Limpiar el formulario y cerrar el popover
+      setNewSubcategoryName('')
+      setSubcategoryPopoverOpen(false)
+      
+      toast.success('Subcategoría creada exitosamente')
+    } catch (error) {
+      console.error('Error creating subcategory:', error)
+      toast.error('Error al crear la subcategoría')
+    } finally {
+      setIsCreatingSubcategory(false)
     }
   }
 
@@ -238,7 +615,7 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
         <Button variant="ghost" size="sm" onClick={handleCancel} className="h-10 md:h-8">
           <ArrowLeftIcon className="w-4 h-4" />
         </Button>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Agregar Producto de Bodegón</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">{productToEdit ? 'Editar Producto de Bodegón' : 'Agregar Producto de Bodegón'}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -303,36 +680,60 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
               <CardTitle>Imágenes del Producto</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <UploadIcon className="w-8 h-8 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-2">Sueltas tus imágenes aquí</p>
-                <p className="text-sm text-gray-500 mb-4">PNG, JPG o WebP (max. 5MB)</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 md:h-8 text-base md:text-sm"
-                  onClick={() => document.getElementById('imageUpload')?.click()}
-                >
-                  Seleccionar imágenes
-                </Button>
-                <input
-                  id="imageUpload"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </div>
-              
-              {images.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {images.length === 0 && existingImageUrls.length === 0 ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <UploadIcon className="w-8 h-8 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-600 mb-2">Sueltas tus imágenes aquí</p>
+                  <p className="text-sm text-gray-500 mb-4">PNG, JPG o WebP (max. 5MB)</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 md:h-8 text-base md:text-sm"
+                    onClick={() => document.getElementById('imageUpload')?.click()}
+                  >
+                    Seleccionar imágenes
+                  </Button>
+                  <input
+                    id="imageUpload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {/* Imágenes existentes */}
+                  {existingImageUrls.map((imageUrl, index) => (
+                    <div key={`existing-${index}`} className="relative aspect-square">
+                      <img
+                        src={imageUrl}
+                        alt={`Existing ${index + 1}`}
+                        className="w-full h-full object-cover rounded-lg border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
+                        onClick={() => setExistingImageUrls(prev => prev.filter((_, i) => i !== index))}
+                      >
+                        ×
+                      </Button>
+                      <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                        Existente
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Imágenes nuevas cargadas */}
                   {images.map((image, index) => (
-                    <div key={index} className="relative">
+                    <div key={`new-${index}`} className="relative aspect-square">
                       <img
                         src={URL.createObjectURL(image)}
                         alt={`Preview ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg border"
+                        className="w-full h-full object-cover rounded-lg border"
                       />
                       <Button
                         type="button"
@@ -343,8 +744,34 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
                       >
                         ×
                       </Button>
+                      <div className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
+                        Nueva
+                      </div>
                     </div>
                   ))}
+                  
+                  {/* Placeholders para más imágenes (máximo 4 total) */}
+                  {Array.from({ length: Math.max(0, 4 - images.length - existingImageUrls.length) }).map((_, index) => (
+                    <div 
+                      key={`placeholder-${index}`} 
+                      className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+                      onClick={() => document.getElementById('imageUpload')?.click()}
+                    >
+                      <UploadIcon className="w-6 h-6 text-gray-400 mb-2" />
+                      <span className="text-xs text-gray-500 text-center px-2">
+                        Agregar imagen
+                      </span>
+                    </div>
+                  ))}
+                  
+                  <input
+                    id="imageUpload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
                 </div>
               )}
             </CardContent>
@@ -363,7 +790,7 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
                     <SelectTrigger className="h-10 md:h-9 text-base md:text-sm">
                       <SelectValue placeholder="Seleccionar una categoría" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60">
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
@@ -371,27 +798,112 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" size="sm" className="h-10 md:h-9 px-3">
-                    <PlusIcon className="w-4 h-4" />
-                  </Button>
+                  <Popover open={categoryPopoverOpen} onOpenChange={setCategoryPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" size="sm" className="h-10 md:h-9 px-3">
+                        <PlusIcon className="w-4 h-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="space-y-4">
+                        <h4 className="font-medium leading-none">Nueva Categoría</h4>
+                        <div className="space-y-2">
+                          <Label htmlFor="category-name">Nombre</Label>
+                          <Input
+                            id="category-name"
+                            placeholder="Nombre de la categoría"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setNewCategoryName('')
+                              setCategoryPopoverOpen(false)
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!newCategoryName.trim() || isCreatingCategory}
+                            onClick={handleCreateCategory}
+                          >
+                            {isCreatingCategory ? 'Creando...' : 'Crear'}
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
               {formData.category_id && subcategories.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Subcategoría</Label>
-                  <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange('subcategory_id', value)}>
-                    <SelectTrigger className="h-10 md:h-9 text-base md:text-sm">
-                      <SelectValue placeholder="Seleccionar subcategoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategories.map((subcategory) => (
-                        <SelectItem key={subcategory.id} value={subcategory.id}>
-                          {subcategory.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Seleccionar una subcategoría</Label>
+                  <div className="flex items-center gap-2">
+                    <Select value={formData.subcategory_id} onValueChange={(value) => handleInputChange('subcategory_id', value)}>
+                      <SelectTrigger className="h-10 md:h-9 text-base md:text-sm">
+                        <SelectValue placeholder="Seleccionar subcategoría" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {subcategories.map((subcategory) => (
+                          <SelectItem key={subcategory.id} value={subcategory.id}>
+                            {subcategory.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Popover open={subcategoryPopoverOpen} onOpenChange={setSubcategoryPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="sm" className="h-10 md:h-9 px-3">
+                          <PlusIcon className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-4">
+                          <h4 className="font-medium leading-none">Nueva Subcategoría</h4>
+                          <div className="space-y-2">
+                            <Label htmlFor="subcategory-name">Nombre</Label>
+                            <Input
+                              id="subcategory-name"
+                              placeholder="Nombre de la subcategoría"
+                              value={newSubcategoryName}
+                              onChange={(e) => setNewSubcategoryName(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setNewSubcategoryName('')
+                                setSubcategoryPopoverOpen(false)
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={!newSubcategoryName.trim() || isCreatingSubcategory}
+                              onClick={handleCreateSubcategory}
+                            >
+                              {isCreatingSubcategory ? 'Creando...' : 'Crear'}
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -551,7 +1063,7 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
       </form>
 
       {/* Fixed Footer Bar */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-200 p-4 z-10">
+      <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-200 p-4 z-10">
         <div className="flex justify-end gap-3">
           <Button 
             type="button" 
@@ -567,7 +1079,7 @@ export function AgregarProductoBodegonView({ onBack }: { onBack: () => void }) {
             className="h-11 md:h-10 text-base md:text-sm"
             onClick={handleSubmit}
           >
-            {isSubmitting ? 'Guardando...' : 'Agregar Producto'}
+            {isSubmitting ? 'Guardando...' : (productToEdit ? 'Actualizar Producto' : 'Agregar Producto')}
           </Button>
         </div>
       </div>
