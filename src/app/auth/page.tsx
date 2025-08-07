@@ -1,13 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { StoreIcon } from "lucide-react"
 import { LoginForm } from "@/components/login-form"
 import { RegisterForm } from "@/components/register-form"
 import { Button } from "@/components/ui/button"
+import { useAuth } from '@/contexts/auth-context'
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
+  const router = useRouter()
+  const { user } = useAuth()
+
+  // Redirect if already authenticated with admin/manager role
+  useEffect(() => {
+    if (user && user.role && (user.role.id === 1 || user.role.id === 2)) {
+      router.push('/admin')
+    }
+  }, [user, router])
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">

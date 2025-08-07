@@ -120,8 +120,8 @@ export function NavUser() {
             {/* Role Info */}
             <DropdownMenuGroup>
               <DropdownMenuItem disabled>
-                <Shield className="text-orange-500" />
-                <span className="font-medium text-orange-700">{roleName}</span>
+                <Shield />
+                <span className="font-medium">{roleName}</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -137,7 +137,7 @@ export function NavUser() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               Cerrar Sesión
             </DropdownMenuItem>

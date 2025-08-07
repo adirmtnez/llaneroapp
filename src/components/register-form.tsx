@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Mail, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 
@@ -18,6 +18,7 @@ export function RegisterForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [isRegistered, setIsRegistered] = useState(false)
 
   const { signUp } = useAuth()
   const router = useRouter()
@@ -82,10 +83,63 @@ export function RegisterForm({
       setError(signUpError.message)
       setLoading(false)
     } else {
-      setSuccess('¡Cuenta creada exitosamente! Revisa tu correo para verificar tu cuenta.')
+      setSuccess('¡Cuenta creada exitosamente!')
       setLoading(false)
-      // Optionally redirect to login or admin after verification
+      setIsRegistered(true)
     }
+  }
+
+  // Show success message if registered
+  if (isRegistered) {
+    return (
+      <div className={cn("flex flex-col gap-6 items-center text-center", className)} {...props}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-green-900">¡Cuenta creada exitosamente!</h1>
+          <p className="text-muted-foreground text-sm max-w-sm">
+            Hemos enviado un enlace de verificación a <strong>{email}</strong>
+          </p>
+        </div>
+
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+              <Mail className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm text-gray-700">
+                Revisa tu correo para verificar tu cuenta
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 w-full">
+          <Button 
+            variant="outline" 
+            className="w-full h-11 md:h-10 text-base md:text-sm"
+            onClick={() => {
+              setIsRegistered(false)
+              setName('')
+              setEmail('')
+              setPassword('')
+              setError('')
+              setSuccess('')
+            }}
+          >
+            Registrar otra cuenta
+          </Button>
+          <Button 
+            className="w-full h-11 md:h-10 text-base md:text-sm"
+            onClick={() => window.location.href = '/auth'}
+          >
+            Ir a iniciar sesión
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -100,12 +154,6 @@ export function RegisterForm({
       {error && (
         <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
           {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
-          {success}
         </div>
       )}
       

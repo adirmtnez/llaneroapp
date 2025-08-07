@@ -154,9 +154,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (data: RegisterData): Promise<{ error: Error | null }> => {
     try {
+      // Step 1: Create auth user with display name
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
+        options: {
+          data: {
+            full_name: data.name,
+            display_name: data.name
+          }
+        }
       })
 
       if (authError) {
@@ -164,21 +171,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            name: data.name,
-            email: data.email,
-          })
+        // Step 2: Create user profile entry
+        try {
+          // Use the session token from signup response if available
+          if (authData.session?.access_token) {
+            // Create fresh client for profile creation with nuclear solution
+            const { createClient } = await import('@supabase/supabase-js')
+            const nuclearClient = createClient(
+              'https://zykwuzuukrmgztpgnbth.supabase.co',
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+              {
+                auth: { persistSession: false },
+                global: {
+                  headers: {
+                    Authorization: `Bearer ${authData.session.access_token}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              }
+            )
 
-        if (profileError) {
-          return { error: profileError }
+            // Insert user profile with Customer role (4)
+            const { error: profileError } = await nuclearClient
+              .from('users')
+              .insert({
+                id: authData.user.id,
+                name: data.name,
+                email: data.email,
+                role: 4, // Customer role
+                created_at: new Date().toISOString()
+              })
+
+            if (profileError) {
+              console.error('Error creating user profile with nuclear solution:', profileError)
+              throw profileError
+            }
+          } else {
+            throw new Error('No session token available')
+          }
+
+        } catch (nuclearError) {
+          console.error('Nuclear solution error, using fallback:', nuclearError)
+          // Fallback to regular supabase client
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              name: data.name,
+              email: data.email,
+              role: 4, // Customer role
+              created_at: new Date().toISOString()
+            })
+
+          if (profileError) {
+            console.error('Error creating user profile with fallback:', profileError)
+            return { error: profileError }
+          }
+        }
+
+        // Step 3: Update auth user display name
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: {
+            full_name: data.name,
+            display_name: data.name
+          }
+        })
+
+        if (updateError) {
+          console.error('Error updating display name:', updateError)
+          // Don't return error here as profile was created successfully
         }
       }
 
       return { error: null }
     } catch (error) {
+      console.error('SignUp error:', error)
       return { error: error as Error }
     }
   }
