@@ -71,6 +71,11 @@ const data = {
       viewId: "bodegones-productos",
       items: [
         {
+          title: "Todos",
+          url: "#",
+          viewId: "bodegones-productos-todos",
+        },
+        {
           title: "Categorías",
           url: "#",
           viewId: "bodegones-categorias",
@@ -120,6 +125,11 @@ const data = {
       icon: Package,
       viewId: "restaurantes-productos",
       items: [
+        {
+          title: "Todos",
+          url: "#",
+          viewId: "restaurantes-productos-todos",
+        },
         {
           title: "Categorías",
           url: "#",

@@ -166,10 +166,17 @@ Para garantizar una experiencia táctil óptima, seguir estos estándares en tod
 - **Desktop:** `md:h-9` (36px altura) + `md:text-sm` (14px texto)
 - **Patrón:** `className="h-10 md:h-9 text-base md:text-sm"`
 
-#### 🔘 Botones Principales
+#### 🔘 Botones Principales (Formularios)
 - **Mobile:** `h-11` (44px altura) + `text-base` (16px texto)
 - **Desktop:** `md:h-10` (40px altura) + `md:text-sm` (14px texto)
 - **Patrón:** `className="h-11 md:h-10 text-base md:text-sm"`
+- **Uso:** Botones de Submit en formularios, acciones críticas
+
+#### 🔷 Botones Secundarios (Toolbars)
+- **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
+- **Desktop:** `md:h-8` (32px altura) + `md:text-sm` (14px texto)
+- **Patrón:** `className="h-10 md:h-8 text-base md:text-sm"`
+- **Uso:** Botones en toolbars (Exportar, Importar, Agregar, etc.)
 
 #### 📑 Tabs/Navegación
 - **Mobile:** `h-10` (40px altura) + `text-base` (16px texto)
@@ -184,11 +191,13 @@ Para garantizar una experiencia táctil óptima, seguir estos estándares en tod
 5. **Responsive:** Elegante en desktop, usable en mobile
 
 #### 📋 Implementado en
-- Página de autenticación (`/auth`)
-- Modal de agregar bodegón
-- Vista inicio (tabs y botones)
-- Vista localidades bodegones (todos los botones)
-- **Usar en:** Todos los formularios futuros
+- Página de autenticación (`/auth`) - Botones principales (h-11/h-10)
+- Modal de agregar bodegón - Botones principales (h-11/h-10)
+- Vista inicio (tabs y botones) - Tabs/navegación (h-10/h-8)
+- Vista localidades bodegones - Botones toolbar (h-10/h-8)
+- Vista productos bodegones - Botones toolbar (h-10/h-8)
+- Vista productos restaurantes - Botones toolbar (h-10/h-8)
+- **Usar en:** Todos los módulos futuros con estas categorías
 
 ## Templates Disponibles
 

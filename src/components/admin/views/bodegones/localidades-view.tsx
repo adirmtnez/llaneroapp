@@ -352,7 +352,7 @@ export function BodegonesLocView() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={loadBodegones}
+                onClick={() => loadBodegones()}
                 disabled={isLoading}
                 className="ml-2 h-6 px-2 text-xs"
               >
@@ -387,7 +387,7 @@ export function BodegonesLocView() {
           </DropdownMenu>
           <Button 
             size="sm" 
-            className="whitespace-nowrap h-11 md:h-10 text-base md:text-sm"
+            className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
             onClick={() => setShowAddModal(true)}
           >
             <PlusIcon className="w-4 h-4 mr-2" />
@@ -481,7 +481,7 @@ export function BodegonesLocView() {
                         {error}
                       </p>
                       <Button
-                        onClick={loadBodegones}
+                        onClick={() => loadBodegones()}
                         variant="outline"
                         size="sm"
                         className="text-red-600 border-red-300 hover:bg-red-50"
@@ -547,7 +547,6 @@ export function BodegonesLocView() {
                           >
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem>Ver productos</DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600 cursor-pointer"
                             onClick={() => handleDeleteClick(bodegon)}

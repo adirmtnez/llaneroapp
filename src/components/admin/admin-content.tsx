@@ -7,6 +7,7 @@ import { InicioView } from './views/inicio-view'
 import { BodegonesLocView } from './views/bodegones/localidades-view'
 import { BodegonesPedView } from './views/bodegones/pedidos-view'
 import { BodegonesProdView } from './views/bodegones/productos-view'
+import { BodegonesProductosTodosView } from './views/bodegones/productos-todos-view'
 import { BodegonesCatView } from './views/bodegones/categorias-view'
 import { BodegonesSubcatView } from './views/bodegones/subcategorias-view'
 import { BodegonesRepartidoresView } from './views/bodegones/repartidores-view'
@@ -15,6 +16,7 @@ import { BodegonesMetodosPagoView } from './views/bodegones/metodos-pago-view'
 import { RestaurantesLocView } from './views/restaurantes/localidades-view'
 import { RestaurantesPedView } from './views/restaurantes/pedidos-view'
 import { RestaurantesProdView } from './views/restaurantes/productos-view'
+import { RestaurantesProductosTodosView } from './views/restaurantes/productos-todos-view'
 import { RestaurantesCatView } from './views/restaurantes/categorias-view'
 import { RestaurantesSubcatView } from './views/restaurantes/subcategorias-view'
 import { RestaurantesRepartidoresView } from './views/restaurantes/repartidores-view'
@@ -65,6 +67,8 @@ export function AdminContent() {
         return <BodegonesPedView />
       case 'bodegones-productos':
         return <BodegonesProdView />
+      case 'bodegones-productos-todos':
+        return <BodegonesProductosTodosView />
       case 'bodegones-categorias':
         return <BodegonesCatView />
       case 'bodegones-subcategorias':
@@ -81,6 +85,8 @@ export function AdminContent() {
         return <RestaurantesPedView />
       case 'restaurantes-productos':
         return <RestaurantesProdView />
+      case 'restaurantes-productos-todos':
+        return <RestaurantesProductosTodosView />
       case 'restaurantes-categorias':
         return <RestaurantesCatView />
       case 'restaurantes-subcategorias':
