@@ -17,7 +17,8 @@ import { BodegonWithDetails } from "@/types/bodegons"
 import { useAuth } from "@/contexts/auth-context"
 import { LoadingSpinner } from "@/components/ui/loading-screen"
 import { toast } from "sonner"
-import { useAuthRestoration } from "@/hooks/use-auth-restoration"
+import { useSupabaseQuery } from "@/contexts/supabase-context"
+import { SupabaseClient } from "@supabase/supabase-js"
 
 export function BodegonesLocView() {
   const [selectedFilter, setSelectedFilter] = useState('Todos')
@@ -41,11 +42,18 @@ export function BodegonesLocView() {
   }, [])
 
   const { user } = useAuth()
+  const { executeQuery, isReady, sessionValid, sessionState } = useSupabaseQuery()
 
   const filterOptions = ['Todos', 'Activos', 'Inactivos']
 
   // Load bodegones from Supabase
   const loadBodegones = async () => {
+    // Don't load if session is not ready or valid
+    if (!isReady || !sessionValid) {
+      console.log('SupabaseProvider not ready or session invalid:', { isReady, sessionValid, sessionState })
+      return
+    }
+    
     try {
       console.log('Loading bodegones...')
       setIsLoading(true)
@@ -61,19 +69,9 @@ export function BodegonesLocView() {
 
       console.log('Calling BodegonService.getAll with filters:', filters)
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      const { data, error: serviceError } = await executeQuery(
+        (client: SupabaseClient) => BodegonService.getAll(client, filters)
       )
-      
-      const servicePromise = BodegonService.getAll(filters)
-      
-      const result = await Promise.race([
-        servicePromise,
-        timeoutPromise
-      ]) as { data: BodegonWithDetails[] | null; error: Error | null }
-      
-      const { data, error: serviceError } = result
       
       if (serviceError) {
         const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
@@ -112,35 +110,12 @@ export function BodegonesLocView() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Initial load
+  // Load bodegones when session is ready and filters change
   useEffect(() => {
-    loadBodegones()
-  }, [])
-
-  // Use auth restoration hook to handle page visibility
-  useAuthRestoration({
-    onAuthRestored: () => {
-      console.log('Auth restored, reloading bodegones')
+    if (isReady && sessionValid) {
       loadBodegones()
-    },
-    resetStates: () => {
-      setError('')
-    },
-    delay: 1000
-  })
-
-  useEffect(() => {
-    loadBodegones()
-  }, [selectedFilter])
-
-  // Debounce search
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      loadBodegones()
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm])
+    }
+  }, [isReady, sessionValid, selectedFilter, searchTerm])
 
   const paginatedBodegones = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -170,7 +145,9 @@ export function BodegonesLocView() {
     setIsDeleting(true)
     
     try {
-      const { error: deleteError } = await BodegonService.hardDelete(itemToDelete.id)
+      const { error: deleteError } = await executeQuery(
+        (client: SupabaseClient) => BodegonService.hardDelete(client, itemToDelete.id)
+      )
       
       if (deleteError) {
         toast.error('Error al eliminar bodegón: ' + deleteError.message)

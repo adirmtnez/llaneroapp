@@ -10,6 +10,7 @@ import { StoreIcon, Loader2 } from "lucide-react"
 import { BodegonService } from "@/services/bodegons"
 import { S3StorageService as StorageService } from "@/services/s3-storage"
 import { useAuth } from "@/contexts/auth-context"
+import { useSupabase } from "@/contexts/supabase-context"
 import { toast } from "sonner"
 
 interface AddBodegonModalProps {
@@ -29,6 +30,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
   const [loading, setLoading] = useState(false)
 
   const { user } = useAuth()
+  const { client } = useSupabase()
 
   useEffect(() => {
     const checkDevice = () => {
@@ -59,6 +61,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     try {
       // Create bodegon record first
       const { data: bodegon, error: createError } = await BodegonService.create(
+        client,
         {
           name: formData.name,
           address: formData.address || null,
@@ -96,7 +99,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         } else if (uploadData?.url) {
           // Update bodegón with logo URL
           console.log('Logo uploaded successfully, updating bodegon with URL:', uploadData.url)
-          const { error: updateError } = await BodegonService.update(bodegon.id, { logo_url: uploadData.url })
+          const { error: updateError } = await BodegonService.update(client, bodegon.id, { logo_url: uploadData.url })
           
           if (updateError) {
             console.error('Error updating bodegon with logo URL:', updateError)

@@ -11,6 +11,7 @@ import { StoreIcon, Loader2 } from "lucide-react"
 import { BodegonService } from "@/services/bodegons"
 import { S3StorageService as StorageService } from "@/services/s3-storage"
 import { useAuth } from "@/contexts/auth-context"
+import { useSupabase } from "@/contexts/supabase-context"
 import { toast } from "sonner"
 import { BodegonWithDetails } from "@/types/bodegons"
 
@@ -33,6 +34,7 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
   const [loading, setLoading] = useState(false)
 
   const { user } = useAuth()
+  const { client } = useSupabase()
 
   useEffect(() => {
     const checkDevice = () => {
@@ -100,7 +102,7 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         }
       }
 
-      const { error: updateError } = await BodegonService.update(bodegon.id, updateData)
+      const { error: updateError } = await BodegonService.update(client, bodegon.id, updateData)
 
       if (updateError) {
         toast.error('Error al actualizar bodegón: ' + updateError.message)

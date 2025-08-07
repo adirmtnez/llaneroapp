@@ -24,7 +24,7 @@ import { RepartidoresView } from './views/repartidores-view'
 import { EquipoView } from './views/equipo-view'
 import { MetodosPagoView } from './views/metodos-pago-view'
 import { ConfiguracionesView } from './views/configuraciones-view'
-import { AuthDebug } from '../debug/auth-debug'
+
 
 
 export function AdminContent() {
@@ -115,7 +115,7 @@ export function AdminContent() {
           {renderView()}
         </div>
       </SidebarInset>
-      <AuthDebug show={process.env.NODE_ENV === 'development'} />
+
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { 
   Bodegon, 
   BodegonInsert, 
@@ -8,16 +8,19 @@ import {
 
 export class BodegonService {
   // Get all bodegones with optional filters
-  static async getAll(filters?: {
-    is_active?: boolean
-    search?: string
-    limit?: number
-    offset?: number
-  }): Promise<{ data: BodegonWithDetails[] | null; error: Error | null }> {
+  static async getAll(
+    client: SupabaseClient,
+    filters?: {
+      is_active?: boolean
+      search?: string
+      limit?: number
+      offset?: number
+    }
+  ): Promise<{ data: BodegonWithDetails[] | null; error: Error | null }> {
     try {
       console.log('BodegonService.getAll called with filters:', filters)
       
-      let query = supabase
+      let query = client
         .from('bodegons')
         .select('*')
 
@@ -64,7 +67,7 @@ export class BodegonService {
       const transformedData = await Promise.all(
         bodegones.map(async (bodegon) => {
           try {
-            const { count, error: countError } = await supabase
+            const { count, error: countError } = await client
               .from('bodegon_inventories')
               .select('*', { count: 'exact', head: true })
               .eq('bodegon_id', bodegon.id)
@@ -92,9 +95,12 @@ export class BodegonService {
   }
 
   // Get bodegon by ID
-  static async getById(id: string): Promise<{ data: BodegonWithDetails | null; error: Error | null }> {
+  static async getById(
+    client: SupabaseClient,
+    id: string
+  ): Promise<{ data: BodegonWithDetails | null; error: Error | null }> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bodegons')
         .select('*')
         .eq('id', id)
@@ -118,7 +124,11 @@ export class BodegonService {
   }
 
   // Create new bodegon
-  static async create(data: BodegonInsert, userId?: string): Promise<{ data: Bodegon | null; error: Error | null }> {
+  static async create(
+    client: SupabaseClient,
+    data: BodegonInsert,
+    userId?: string
+  ): Promise<{ data: Bodegon | null; error: Error | null }> {
     try {
       const insertData: BodegonInsert = {
         ...data,
@@ -127,7 +137,7 @@ export class BodegonService {
         modified_date: new Date().toISOString(),
       }
 
-      const { data: result, error } = await supabase
+      const { data: result, error } = await client
         .from('bodegons')
         .insert(insertData)
         .select()
@@ -144,14 +154,19 @@ export class BodegonService {
   }
 
   // Update bodegon
-  static async update(id: string, data: BodegonUpdate, userId?: string): Promise<{ data: Bodegon | null; error: Error | null }> {
+  static async update(
+    client: SupabaseClient,
+    id: string,
+    data: BodegonUpdate,
+    userId?: string
+  ): Promise<{ data: Bodegon | null; error: Error | null }> {
     try {
       const updateData: BodegonUpdate = {
         ...data,
         modified_date: new Date().toISOString(),
       }
 
-      const { data: result, error } = await supabase
+      const { data: result, error } = await client
         .from('bodegons')
         .update(updateData)
         .eq('id', id)
@@ -169,9 +184,12 @@ export class BodegonService {
   }
 
   // Delete bodegon (soft delete by setting is_active to false)
-  static async delete(id: string): Promise<{ error: Error | null }> {
+  static async delete(
+    client: SupabaseClient,
+    id: string
+  ): Promise<{ error: Error | null }> {
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('bodegons')
         .update({ 
           is_active: false,
@@ -186,10 +204,13 @@ export class BodegonService {
   }
 
   // Hard delete bodegon (permanent deletion)
-  static async hardDelete(id: string): Promise<{ error: Error | null }> {
+  static async hardDelete(
+    client: SupabaseClient,
+    id: string
+  ): Promise<{ error: Error | null }> {
     try {
       // First get the bodegon to check if it has a logo
-      const { data: bodegon, error: getError } = await supabase
+      const { data: bodegon, error: getError } = await client
         .from('bodegons')
         .select('logo_url')
         .eq('id', id)
@@ -199,6 +220,16 @@ export class BodegonService {
         return { error: getError }
       }
 
+      // Delete all bodegon_inventories related to this bodegon first
+      const { error: inventoryDeleteError } = await client
+        .from('bodegon_inventories')
+        .delete()
+        .eq('bodegon_id', id)
+
+      if (inventoryDeleteError) {
+        return { error: inventoryDeleteError }
+      }
+
       // Delete logo from storage if exists
       if (bodegon?.logo_url) {
         const { S3StorageService } = await import('./s3-storage')
@@ -206,7 +237,7 @@ export class BodegonService {
       }
 
       // Delete bodegon record
-      const { error } = await supabase
+      const { error } = await client
         .from('bodegons')
         .delete()
         .eq('id', id)
@@ -218,9 +249,12 @@ export class BodegonService {
   }
 
   // Get bodegones assigned to a user
-  static async getByUserId(userId: string): Promise<{ data: BodegonWithDetails[] | null; error: Error | null }> {
+  static async getByUserId(
+    client: SupabaseClient,
+    userId: string
+  ): Promise<{ data: BodegonWithDetails[] | null; error: Error | null }> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bodegons')
         .select(`
           *,
@@ -246,10 +280,13 @@ export class BodegonService {
   }
 
   // Toggle active status
-  static async toggleActive(id: string): Promise<{ data: Bodegon | null; error: Error | null }> {
+  static async toggleActive(
+    client: SupabaseClient,
+    id: string
+  ): Promise<{ data: Bodegon | null; error: Error | null }> {
     try {
       // First get current status
-      const { data: current, error: getCurrentError } = await supabase
+      const { data: current, error: getCurrentError } = await client
         .from('bodegons')
         .select('is_active')
         .eq('id', id)
@@ -260,7 +297,7 @@ export class BodegonService {
       }
 
       // Toggle the status
-      const { data: result, error } = await supabase
+      const { data: result, error } = await client
         .from('bodegons')
         .update({ 
           is_active: !current.is_active,

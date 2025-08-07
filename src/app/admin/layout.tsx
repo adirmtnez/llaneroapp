@@ -13,11 +13,7 @@ export default function AdminLayout({
       <div className="flex h-screen w-full">
         {children}
       </div>
-      <Toaster 
-        position="top-center"
-        richColors
-        closeButton
-      />
+
     </SidebarProvider>
   )
 }
