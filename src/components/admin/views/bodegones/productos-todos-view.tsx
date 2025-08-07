@@ -340,29 +340,74 @@ export function BodegonesProductosTodosView() {
     try {
       setDeletingId(productToDelete.id)
 
+      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+        }
+      } catch (error) {
+        toast.error('Error de autenticación')
+        setDeletingId(null)
+        return
+      }
+      
+      if (!accessToken) {
+        toast.error('Token no válido, recarga la página')
+        setDeletingId(null)
+        return
+      }
+
+      // Crear cliente fresco
+      const { createClient } = await import('@supabase/supabase-js')
+      const nuclearClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+      )
+
       // First delete associated bodegon_inventories
-      const { error: inventoryError } = await supabase
+      const { error: inventoryError } = await nuclearClient
         .from('bodegon_inventories')
         .delete()
         .eq('product_id', productToDelete.id)
 
-      if (inventoryError) throw inventoryError
+      if (inventoryError) {
+        toast.error('Error al eliminar inventarios: ' + inventoryError.message)
+        setDeletingId(null)
+        return
+      }
 
       // Then delete the product
-      const { error: productError } = await supabase
+      const { error: productError } = await nuclearClient
         .from('bodegon_products')
         .delete()
         .eq('id', productToDelete.id)
 
-      if (productError) throw productError
+      if (productError) {
+        toast.error('Error al eliminar producto: ' + productError.message)
+        setDeletingId(null)
+        return
+      }
 
+      // Operación completada exitosamente
       toast.success('Producto eliminado exitosamente')
       loadProducts() // Reload the products list
       setShowDeleteModal(false)
       setProductToDelete(null)
     } catch (error) {
       console.error('Error deleting product:', error)
-      toast.error('Error al eliminar el producto')
+      toast.error('Error inesperado al eliminar el producto')
     } finally {
       setDeletingId(null)
     }
@@ -455,6 +500,8 @@ export function BodegonesProductosTodosView() {
         setShowAddProduct(false)
         setShowEditProduct(false)
         setProductToEdit(null)
+        // Refresh the products list
+        loadProducts()
       }} 
       onViewChange={() => {}} 
       productToEdit={productToEdit}
