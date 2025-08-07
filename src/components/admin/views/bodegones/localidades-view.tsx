@@ -46,11 +46,6 @@ export function BodegonesLocView() {
 
   // Load bodegones from Supabase
   const loadBodegones = async (isMountedRef?: { current: boolean }) => {
-    // Don't load if session is not ready or valid
-    if (!isReady || !sessionValid) {
-      return
-    }
-    
     // ✅ Check if component is still mounted before setState
     if (isMountedRef && !isMountedRef.current) return
     
@@ -181,7 +176,7 @@ export function BodegonesLocView() {
     let isMounted = true // ✅ Flag para prevenir setState en componentes desmontados
 
     const loadData = async () => {
-      if (!isMounted || !isReady || !sessionValid) return
+      if (!isMounted) return
       
       try {
         await loadBodegones()
@@ -194,16 +189,14 @@ export function BodegonesLocView() {
       }
     }
 
-    if (isReady && sessionValid) {
-      loadData()
-    }
+    loadData()
 
     return () => {
       // ✅ Cleanup para prevenir procesos colgantes
       isMounted = false
       setIsLoading(false)
     }
-  }, [isReady, sessionValid, selectedFilter, searchTerm])
+  }, [selectedFilter, searchTerm])
 
   const paginatedBodegones = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize

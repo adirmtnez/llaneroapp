@@ -62,9 +62,6 @@ export function BodegonesProductosTodosView() {
 
   // Load categories from Supabase with nuclear solution
   const loadCategories = async (isMountedRef?: { current: boolean }) => {
-    if (!isReady || !sessionValid) {
-      return
-    }
     
     if (isMountedRef && !isMountedRef.current) return
     
@@ -124,9 +121,6 @@ export function BodegonesProductosTodosView() {
 
   // Load subcategories from Supabase with nuclear solution
   const loadSubcategories = async (isMountedRef?: { current: boolean }) => {
-    if (!isReady || !sessionValid) {
-      return
-    }
     
     if (isMountedRef && !isMountedRef.current) return
     
@@ -189,9 +183,6 @@ export function BodegonesProductosTodosView() {
   // Load products from Supabase with nuclear solution
   const loadProducts = async (isMountedRef?: { current: boolean }) => {
     // Don't load if session is not ready or valid
-    if (!isReady || !sessionValid) {
-      return
-    }
     
     // ✅ Check if component is still mounted before setState
     if (isMountedRef && !isMountedRef.current) return
@@ -416,7 +407,7 @@ export function BodegonesProductosTodosView() {
     let isMounted = true
 
     const loadData = async () => {
-      if (!isMounted || !isReady || !sessionValid) return
+      if (!isMounted) return
       
       try {
         await Promise.all([
@@ -428,21 +419,21 @@ export function BodegonesProductosTodosView() {
       }
     }
 
-    if (isReady && sessionValid) {
+    {
       loadData()
     }
 
     return () => {
       isMounted = false
     }
-  }, [isReady, sessionValid])
+  }, [])
 
   // Load products when session is ready and filters change
   useEffect(() => {
     let isMounted = true // ✅ Flag para prevenir setState en componentes desmontados
 
     const loadData = async () => {
-      if (!isMounted || !isReady || !sessionValid) return
+      if (!isMounted) return
       
       try {
         await loadProducts({ current: isMounted })
@@ -454,7 +445,7 @@ export function BodegonesProductosTodosView() {
       }
     }
 
-    if (isReady && sessionValid) {
+    {
       loadData()
     }
 
@@ -463,7 +454,7 @@ export function BodegonesProductosTodosView() {
       isMounted = false
       setIsLoading(false)
     }
-  }, [isReady, sessionValid, selectedFilters, selectedCategories, selectedSubcategories, searchTerm])
+  }, [selectedFilters, selectedCategories, selectedSubcategories, searchTerm])
 
   useEffect(() => {
     const checkMobile = () => {

@@ -184,7 +184,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
 
   // Load subcategories when category changes - Nuclear Solution
   const loadSubcategories = async (categoryId: string) => {
-    if (!isReady || !sessionValid || !categoryId) return
+    if (!categoryId) return
 
     try {
       // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
@@ -245,14 +245,11 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
   }
 
   useEffect(() => {
-    if (isReady && sessionValid) {
-      loadCategories()
-    }
-  }, [isReady, sessionValid])
+    loadCategories()
+  }, [])
 
   // Load product bodegones when editing
   const loadProductBodegones = async (productId: string) => {
-    if (!isReady || !sessionValid) return
 
     try {
       const { data: inventoryData, error } = await executeQuery(
@@ -315,7 +312,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
       // Clear existing images when not editing
       setExistingImageUrls([])
     }
-  }, [productToEdit?.id, categories.length, isReady, sessionValid])
+  }, [productToEdit?.id, categories.length])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
