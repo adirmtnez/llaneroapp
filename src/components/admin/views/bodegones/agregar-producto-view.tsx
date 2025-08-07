@@ -535,6 +535,12 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
       }
 
       // Create new inventory entries for selected bodegones
+      if (!productResult) {
+        toast.error('Error: No se pudo obtener el resultado del producto')
+        setIsSubmitting(false)
+        return
+      }
+
       const inventoryEntries = selectedBodegones.map(bodegonId => ({
         product_id: productResult.id,
         bodegon_id: bodegonId,
