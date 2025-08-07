@@ -7,24 +7,71 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, StoreIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, StoreIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { AddBodegonModal } from "../../modals/add-bodegon-modal"
 import { DeleteConfirmationModal } from "../../modals/delete-confirmation-modal"
+import { BodegonService } from "@/services/bodegons"
+import { BodegonWithDetails } from "@/types/bodegons"
+import { useAuth } from "@/contexts/auth-context"
+import { LoadingSpinner } from "@/components/ui/loading-screen"
+import { toast } from "sonner"
 
 export function BodegonesLocView() {
   const [selectedFilter, setSelectedFilter] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<{id: number, name: string} | null>(null)
+  const [itemToDelete, setItemToDelete] = useState<{id: string, name: string} | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [bodegones, setBodegones] = useState<BodegonWithDetails[]>([])
+  const [error, setError] = useState<string>('')
+
+  const { user } = useAuth()
 
   const filterOptions = ['Todos', 'Activos', 'Inactivos']
+
+  // Load bodegones from Supabase
+  const loadBodegones = async () => {
+    try {
+      console.log('Loading bodegones...')
+      setIsLoading(true)
+      setError('')
+      
+      const filters: any = {}
+      if (selectedFilter !== 'Todos') {
+        filters.is_active = selectedFilter === 'Activos'
+      }
+      if (searchTerm) {
+        filters.search = searchTerm
+      }
+
+      console.log('Calling BodegonService.getAll with filters:', filters)
+      const { data, error: serviceError } = await BodegonService.getAll(filters)
+      
+      if (serviceError) {
+        const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
+        setError(errorMessage)
+        toast.error(errorMessage)
+        return
+      }
+
+      console.log('Bodegones loaded successfully:', data?.length || 0, 'items')
+      setBodegones(data || [])
+    } catch (err) {
+      const errorMessage = 'Error inesperado al cargar bodegones'
+      setError(errorMessage)
+      toast.error(errorMessage)
+      console.error('Error loading bodegones:', err)
+    } finally {
+      console.log('Setting loading to false')
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     const checkMobile = () => {
@@ -36,38 +83,37 @@ export function BodegonesLocView() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const bodegones = useMemo(() => [
-    { id: 1, name: 'Bararida', products: 0, status: 'Activo' },
-    { id: 2, name: 'Bodegón del Este', products: 0, status: 'Activo' },
-    { id: 3, name: 'Cabudare', products: 0, status: 'Activo' },
-    { id: 4, name: 'Cardones', products: 0, status: 'Activo' },
-    { id: 5, name: 'Express', products: 0, status: 'Activo' },
-    { id: 6, name: 'Trinitarias', products: 0, status: 'Activo' },
-    { id: 7, name: 'West', products: 0, status: 'Activo' },
-    { id: 8, name: 'Yaritagua', products: 0, status: 'Activo' }
-  ], [])
+  // Initial load
+  useEffect(() => {
+    loadBodegones()
+  }, [])
 
-  const filteredBodegones = useMemo(() => {
-    return bodegones.filter(bodegon => {
-      const matchesFilter = selectedFilter === 'Todos' || bodegon.status === selectedFilter.slice(0, -1)
-      const matchesSearch = bodegon.name.toLowerCase().includes(searchTerm.toLowerCase())
-      return matchesFilter && matchesSearch
-    })
-  }, [bodegones, selectedFilter, searchTerm])
+  useEffect(() => {
+    loadBodegones()
+  }, [selectedFilter])
+
+  // Debounce search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadBodegones()
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm])
 
   const paginatedBodegones = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
-    return filteredBodegones.slice(startIndex, startIndex + pageSize)
-  }, [filteredBodegones, currentPage, pageSize])
+    return bodegones.slice(startIndex, startIndex + pageSize)
+  }, [bodegones, currentPage, pageSize])
 
-  const totalPages = Math.ceil(filteredBodegones.length / pageSize)
+  const totalPages = Math.ceil(bodegones.length / pageSize)
 
   const handlePageSizeChange = (newSize: string) => {
     setPageSize(Number(newSize))
     setCurrentPage(1)
   }
 
-  const handleDeleteClick = (bodegon: {id: number, name: string}) => {
+  const handleDeleteClick = (bodegon: {id: string, name: string}) => {
     setItemToDelete(bodegon)
     setShowDeleteModal(true)
   }
@@ -78,24 +124,43 @@ export function BodegonesLocView() {
     setIsDeleting(true)
     
     try {
-      // Simular API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      console.log('Eliminando bodegón:', itemToDelete.name)
+      const { error: deleteError } = await BodegonService.hardDelete(itemToDelete.id)
       
-      // Aquí iría la lógica real de eliminación
+      if (deleteError) {
+        toast.error('Error al eliminar bodegón: ' + deleteError.message)
+        return
+      }
+
+      toast.success(`Bodegón "${itemToDelete.name}" eliminado exitosamente`)
+
+      // Reload bodegones after successful deletion
+      await loadBodegones()
       setShowDeleteModal(false)
       setItemToDelete(null)
     } catch (error) {
       console.error('Error al eliminar:', error)
+      toast.error('Error inesperado al eliminar bodegón')
     } finally {
       setIsDeleting(false)
     }
   }
 
+  const handleAddBodegonSuccess = () => {
+    loadBodegones() // Reload data
+  }
+
   return (
     <div className="space-y-4 md:space-y-6 w-full max-w-[1200px]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Bodegones</h1>
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Bodegones</h1>
+          {error && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-red-600">
+              <AlertCircleIcon className="w-4 h-4" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <Button variant="outline" size="sm" className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm">
@@ -120,14 +185,6 @@ export function BodegonesLocView() {
               <DropdownMenuItem>Eliminar seleccionados</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => setIsLoading(!isLoading)}
-            className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
-          >
-            {isLoading ? 'Ocultar' : 'Mostrar'} Skeleton
-          </Button>
           <Button 
             size="sm" 
             className="whitespace-nowrap h-11 md:h-10 text-base md:text-sm"
@@ -212,6 +269,28 @@ export function BodegonesLocView() {
                     </TableCell>
                   </TableRow>
                 ))
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-16">
+                    <div className="flex flex-col items-center justify-center text-red-500">
+                      <div className="w-16 h-16 mb-4 border-2 border-dashed border-red-300 rounded-lg flex items-center justify-center">
+                        <AlertCircleIcon className="w-8 h-8 text-red-400" />
+                      </div>
+                      <p className="text-lg font-medium text-red-700 mb-1">Error al cargar bodegones</p>
+                      <p className="text-sm text-red-500 text-center max-w-md mb-4">
+                        {error}
+                      </p>
+                      <Button
+                        onClick={loadBodegones}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        Reintentar
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : paginatedBodegones.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-16">
@@ -243,12 +322,15 @@ export function BodegonesLocView() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <PackageIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-600">{bodegon.products}</span>
+                        <span className="text-gray-600">{bodegon.product_count || 0}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
-                        {bodegon.status}
+                      <Badge variant={bodegon.is_active ? "default" : "secondary"} 
+                             className={bodegon.is_active 
+                               ? "bg-green-100 text-green-700 border-green-200" 
+                               : "bg-gray-100 text-gray-700 border-gray-200"}>
+                        {bodegon.is_active ? 'Activo' : 'Inactivo'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -276,10 +358,10 @@ export function BodegonesLocView() {
             </TableBody>
           </Table>
 
-          {filteredBodegones.length > 0 && (
+          {bodegones.length > 0 && (
             <div className="flex flex-col gap-4 px-4 py-4 border-t md:flex-row md:items-center md:justify-between">
               <div className="text-sm text-gray-600 text-center md:text-left">
-                Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, filteredBodegones.length)} de {filteredBodegones.length} resultados
+                Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, bodegones.length)} de {bodegones.length} resultados
               </div>
               
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-4">
@@ -379,7 +461,8 @@ export function BodegonesLocView() {
 
       <AddBodegonModal 
         open={showAddModal} 
-        onOpenChange={setShowAddModal} 
+        onOpenChange={setShowAddModal}
+        onSuccess={handleAddBodegonSuccess}
       />
 
       <DeleteConfirmationModal

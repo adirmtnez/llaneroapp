@@ -1,6 +1,7 @@
 'use client'
 
 import { SidebarProvider } from "@/components/ui/sidebar"
+import { Toaster } from "@/components/ui/sonner"
 
 export default function AdminLayout({
   children,
@@ -12,6 +13,11 @@ export default function AdminLayout({
       <div className="flex h-screen w-full">
         {children}
       </div>
+      <Toaster 
+        position="top-center"
+        richColors
+        closeButton
+      />
     </SidebarProvider>
   )
 }

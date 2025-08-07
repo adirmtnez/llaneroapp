@@ -1,20 +1,66 @@
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "next/navigation"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const { signIn, canAccessAdmin } = useAuth()
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      console.log('Attempting login with:', email) // Debug log
+      
+      const { error: signInError } = await signIn({ email, password })
+
+      if (signInError) {
+        console.error('Sign in error:', signInError)
+        setError(signInError.message)
+        setLoading(false)
+        return
+      }
+
+      console.log('Login successful, redirecting to admin')
+      // Use Next.js router for cleaner navigation
+      router.push('/admin')
+
+    } catch (error) {
+      console.error('Login error:', error)
+      setError('Error inesperado al iniciar sesión')
+      setLoading(false)
+    }
+  }
+
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form className={cn("flex flex-col gap-6", className)} onSubmit={handleSubmit} {...props}>
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Iniciar sesión</h1>
         <p className="text-muted-foreground text-sm text-balance">
           Ingresa tu correo electrónico para acceder a tu cuenta
         </p>
       </div>
+      
+      {error && (
+        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+          {error}
+        </div>
+      )}
+      
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Correo electrónico</Label>
@@ -22,6 +68,8 @@ export function LoginForm({
             id="email" 
             type="email" 
             placeholder="juan@ejemplo.com" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="h-10 md:h-9 text-base md:text-sm"
             required 
           />
@@ -39,12 +87,14 @@ export function LoginForm({
           <Input 
             id="password" 
             type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             className="h-10 md:h-9 text-base md:text-sm"
             required 
           />
         </div>
-        <Button type="submit" className="w-full h-11 md:h-10 text-base md:text-sm">
-          Iniciar sesión
+        <Button type="submit" className="w-full h-11 md:h-10 text-base md:text-sm" disabled={loading}>
+          {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
         </Button>
         <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
           <span className="bg-background text-muted-foreground relative z-10 px-2">

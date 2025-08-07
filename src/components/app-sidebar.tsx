@@ -35,11 +35,6 @@ interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 const data = {
-  user: {
-    name: "Admin",
-    email: "admin@llanerobodegon.com",
-    avatar: "/avatars/admin.jpg",
-  },
   teams: [
     {
       name: "LlaneroBodegón",
@@ -170,7 +165,7 @@ export function AppSidebar({ currentView, onViewChange, ...props }: AdminSidebar
         <NavProjects projects={data.restaurantes} currentView={currentView} onViewChange={onViewChange} title="Restaurantes" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

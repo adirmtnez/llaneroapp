@@ -4,13 +4,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "next/navigation"
 
 export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const { signUp } = useAuth()
+  const router = useRouter()
 
   const getPasswordStrength = (pwd: string) => {
     if (pwd.length === 0) return { score: 0, label: "" }
@@ -45,20 +55,57 @@ export function RegisterForm({
     return `${(score / 5) * 100}%`
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setSuccess('')
+
+    const { error: signUpError } = await signUp({ 
+      name, 
+      email, 
+      password 
+    })
+
+    if (signUpError) {
+      setError(signUpError.message)
+      setLoading(false)
+    } else {
+      setSuccess('¡Cuenta creada exitosamente! Revisa tu correo para verificar tu cuenta.')
+      setLoading(false)
+      // Optionally redirect to login or admin after verification
+    }
+  }
+
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form className={cn("flex flex-col gap-6", className)} onSubmit={handleSubmit} {...props}>
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Crear cuenta</h1>
         <p className="text-muted-foreground text-sm text-balance">
           Completa la información para crear tu cuenta
         </p>
       </div>
+      
+      {error && (
+        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
+          {success}
+        </div>
+      )}
+      
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="name">Nombre completo</Label>
           <Input 
             id="name" 
             placeholder="Juan Pérez" 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             className="h-10 md:h-9 text-base md:text-sm"
             required 
           />
@@ -69,6 +116,8 @@ export function RegisterForm({
             id="email" 
             type="email" 
             placeholder="juan@ejemplo.com" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="h-10 md:h-9 text-base md:text-sm"
             required 
           />
@@ -123,8 +172,8 @@ export function RegisterForm({
             </div>
           )}
         </div>
-        <Button type="submit" className="w-full h-11 md:h-10 text-base md:text-sm">
-          Crear cuenta
+        <Button type="submit" className="w-full h-11 md:h-10 text-base md:text-sm" disabled={loading}>
+          {loading ? 'Creando cuenta...' : 'Crear cuenta'}
         </Button>
         <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
           <span className="bg-background text-muted-foreground relative z-10 px-2">

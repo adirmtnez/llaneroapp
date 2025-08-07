@@ -1,19 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
-import { StoreIcon } from "lucide-react"
+import { StoreIcon, Loader2 } from "lucide-react"
+import { BodegonService } from "@/services/bodegons"
+import { S3StorageService as StorageService } from "@/services/s3-storage"
+import { useAuth } from "@/contexts/auth-context"
+import { toast } from "sonner"
 
 interface AddBodegonModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
+export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonModalProps) {
   const [isDesktop, setIsDesktop] = useState(true)
   const [formData, setFormData] = useState({
     name: "",
@@ -21,6 +26,9 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
     phone: "",
     logo: null as File | null
   })
+  const [loading, setLoading] = useState(false)
+
+  const { user } = useAuth()
 
   useEffect(() => {
     const checkDevice = () => {
@@ -32,40 +40,105 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
     return () => window.removeEventListener('resize', checkDevice)
   }, [])
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null
-    setFormData(prev => ({ ...prev, logo: file }))
-  }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Form submitted:', formData)
+    setLoading(true)
+
+    try {
+      // Create bodegon record first
+      const { data: bodegon, error: createError } = await BodegonService.create(
+        {
+          name: formData.name,
+          address: formData.address || null,
+          phone_number: formData.phone || null,
+          logo_url: null, // Will update this after upload
+          is_active: true,
+        },
+        user?.auth_user.id
+      )
+
+      if (createError) {
+        toast.error('Error al crear bodegón: ' + createError.message)
+        setLoading(false)
+        return
+      }
+
+      if (!bodegon) {
+        toast.error('Error: No se pudo obtener el bodegón creado')
+        setLoading(false)
+        return
+      }
+
+      // Upload logo if provided, using the real bodegón ID
+      if (formData.logo) {
+        console.log('Uploading logo for bodegon:', bodegon.id)
+        const { data: uploadData, error: uploadError } = await StorageService.uploadBodegonLogo(
+          bodegon.id,
+          formData.logo
+        )
+
+        if (uploadError) {
+          console.error('Error uploading logo:', uploadError)
+          toast.error('Error al subir logo: ' + uploadError.message)
+          // Bodegón was created but logo failed - this is acceptable
+        } else if (uploadData?.url) {
+          // Update bodegón with logo URL
+          console.log('Logo uploaded successfully, updating bodegon with URL:', uploadData.url)
+          const { error: updateError } = await BodegonService.update(bodegon.id, { logo_url: uploadData.url })
+          
+          if (updateError) {
+            console.error('Error updating bodegon with logo URL:', updateError)
+            toast.error('Error al actualizar bodegón con logo: ' + updateError.message)
+          } else {
+            console.log('Bodegon updated successfully with logo')
+          }
+        }
+      }
+
+      toast.success('¡Bodegón creado exitosamente!')
+      
+      // Reset form
+      setFormData({ name: "", address: "", phone: "", logo: null })
+      
+      // Call success callback
+      if (onSuccess) {
+        onSuccess()
+      }
+
+      // Close modal
+      onOpenChange(false)
+
+    } catch (err) {
+      console.error('Error creating bodegon:', err)
+      toast.error('Error inesperado al crear bodegón')
+    } finally {
+      console.log('Finally block: setting loading to false')
+      setLoading(false)
+    }
+  }, [formData, user, onSuccess, onOpenChange])
+
+  const handleCancel = useCallback(() => {
+    if (loading) return // Prevent closing during loading
+    
     onOpenChange(false)
     // Reset form
     setFormData({ name: "", address: "", phone: "", logo: null })
-  }
+  }, [loading, onOpenChange])
 
-  const handleCancel = () => {
-    onOpenChange(false)
-    // Reset form
-    setFormData({ name: "", address: "", phone: "", logo: null })
-  }
-
-  const FormContent = () => (
+  const formContent = (
     <form onSubmit={handleSubmit} className={`space-y-5 ${!isDesktop ? 'pb-6' : ''}`}>
       <div className="space-y-3">
         <Label htmlFor="name" className="text-sm font-medium">
           Nombre <span className="text-red-500">*</span>
         </Label>
         <Input
+          key="name-input"
           id="name"
           placeholder="Ej: Bodegón Central"
           value={formData.name}
-          onChange={(e) => handleInputChange('name', e.target.value)}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
           required
           className="h-10 md:h-9 text-base md:text-sm"
         />
@@ -74,10 +147,11 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
       <div className="space-y-3">
         <Label htmlFor="address" className="text-sm font-medium">Dirección</Label>
         <Input
+          key="address-input"
           id="address"
           placeholder="Ej: Av. Principal #123, Ciudad"
           value={formData.address}
-          onChange={(e) => handleInputChange('address', e.target.value)}
+          onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
           className="h-10 md:h-9 text-base md:text-sm"
         />
       </div>
@@ -87,10 +161,11 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           Teléfono <span className="text-red-500">*</span>
         </Label>
         <Input
+          key="phone-input"
           id="phone"
           placeholder="Ej: +1234567890"
           value={formData.phone}
-          onChange={(e) => handleInputChange('phone', e.target.value)}
+          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
           required
           className="h-10 md:h-9 text-base md:text-sm"
         />
@@ -103,7 +178,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
             id="logo"
             type="file"
             accept="image/*"
-            onChange={handleFileChange}
+            onChange={(e) => setFormData(prev => ({ ...prev, logo: e.target.files?.[0] || null }))}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
           <div className="flex flex-col items-center justify-center text-center">
@@ -145,15 +220,24 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           type="button" 
           variant="outline" 
           onClick={handleCancel} 
+          disabled={loading}
           className="flex-1 h-11 md:h-10 text-base md:text-sm"
         >
           Cancelar
         </Button>
         <Button 
           type="submit" 
+          disabled={loading}
           className="flex-1 h-11 md:h-10 text-base md:text-sm"
         >
-          Guardar Bodegón
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Guardando...
+            </>
+          ) : (
+            'Guardar Bodegón'
+          )}
         </Button>
       </div>
     </form>
@@ -176,7 +260,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
               </div>
             </div>
           </DialogHeader>
-          <FormContent />
+{formContent}
         </DialogContent>
       </Dialog>
     )
@@ -199,7 +283,7 @@ export function AddBodegonModal({ open, onOpenChange }: AddBodegonModalProps) {
           </div>
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto p-4">
-          <FormContent />
+{formContent}
         </div>
       </DrawerContent>
     </Drawer>

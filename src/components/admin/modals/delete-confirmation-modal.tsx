@@ -54,11 +54,11 @@ export function DeleteConfirmationModal({
         </div>
         <div className="flex-1 space-y-2">
           <h3 className="text-lg font-semibold text-gray-900">
-            ¿Eliminar {itemType}?
+            ¿Eliminar permanentemente {itemType}?
           </h3>
           <p className="text-sm text-gray-600">
-            ¿Estás seguro de que deseas eliminar <span className="font-medium">&ldquo;{itemName}&rdquo;</span>? 
-            Esta acción no se puede deshacer.
+            ¿Estás seguro de que deseas eliminar permanentemente <span className="font-medium">&ldquo;{itemName}&rdquo;</span>? 
+            Esta acción eliminará completamente el {itemType} y todos sus datos asociados. No se puede deshacer.
           </p>
         </div>
       </div>
@@ -76,7 +76,7 @@ export function DeleteConfirmationModal({
               Eliminando...
             </>
           ) : (
-            `Sí, eliminar ${itemType}`
+            `Eliminar permanentemente`
           )}
         </Button>
         <Button
