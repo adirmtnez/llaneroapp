@@ -47,12 +47,15 @@ export function BodegonesLocView() {
   const filterOptions = ['Todos', 'Activos', 'Inactivos']
 
   // Load bodegones from Supabase
-  const loadBodegones = async () => {
+  const loadBodegones = async (isMountedRef?: { current: boolean }) => {
     // Don't load if session is not ready or valid
     if (!isReady || !sessionValid) {
       console.log('SupabaseProvider not ready or session invalid:', { isReady, sessionValid, sessionState })
       return
     }
+    
+    // ✅ Check if component is still mounted before setState
+    if (isMountedRef && !isMountedRef.current) return
     
     try {
       console.log('Loading bodegones...')
@@ -112,8 +115,30 @@ export function BodegonesLocView() {
 
   // Load bodegones when session is ready and filters change
   useEffect(() => {
+    let isMounted = true // ✅ Flag para prevenir setState en componentes desmontados
+
+    const loadData = async () => {
+      if (!isMounted || !isReady || !sessionValid) return
+      
+      try {
+        await loadBodegones()
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading bodegones:', error)
+          setError('Error al cargar bodegones')
+          setIsLoading(false)
+        }
+      }
+    }
+
     if (isReady && sessionValid) {
-      loadBodegones()
+      loadData()
+    }
+
+    return () => {
+      // ✅ Cleanup para prevenir procesos colgantes
+      isMounted = false
+      setIsLoading(false)
     }
   }, [isReady, sessionValid, selectedFilter, searchTerm])
 

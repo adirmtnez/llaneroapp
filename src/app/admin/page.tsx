@@ -1,8 +1,17 @@
 'use client'
 
-import { AdminContent } from '@/components/admin/admin-content'
+import dynamic from 'next/dynamic'
 import { useAuthGuard } from '@/hooks/use-auth-guard'
 import { LoadingScreen } from '@/components/ui/loading-screen'
+
+// ✅ Client-side only rendering para evitar hidratación problemática
+const AdminContent = dynamic(
+  () => import('@/components/admin/admin-content').then(mod => ({ default: mod.AdminContent })),
+  { 
+    ssr: false,
+    loading: () => <LoadingScreen message="Cargando dashboard..." />
+  }
+)
 
 export default function AdminPage() {
   const { user, loading, canAccessAdmin } = useAuthGuard()

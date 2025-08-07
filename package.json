@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "kill-processes": "pkill -f node || pkill -f next || true",
+    "health-check": "npm run kill-processes && npm run lint",
+    "dev-clean": "npm run kill-processes && npm run dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.862.0",

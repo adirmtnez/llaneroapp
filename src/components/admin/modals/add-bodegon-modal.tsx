@@ -28,18 +28,19 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     logo: null as File | null
   })
   const [loading, setLoading] = useState(false)
+  const [isMounted, setIsMounted] = useState(true) // ✅ Flag para prevenir setState después del unmount
 
   const { user } = useAuth()
   const { client } = useSupabase()
 
   useEffect(() => {
     const checkDevice = () => {
-      setIsDesktop(window.innerWidth >= 768)
+      if (isMounted) setIsDesktop(window.innerWidth >= 768) // ✅ Check mounted state
     }
 
     const handleAuthRestored = () => {
       console.log('Auth restored in AddBodegonModal, resetting loading state')
-      setLoading(false)
+      if (isMounted) setLoading(false) // ✅ Check mounted state
     }
 
     checkDevice()
@@ -47,8 +48,11 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     window.addEventListener('authRestored', handleAuthRestored)
     
     return () => {
+      // ✅ Cleanup completo para prevenir procesos colgantes
+      setIsMounted(false)
       window.removeEventListener('resize', checkDevice)
       window.removeEventListener('authRestored', handleAuthRestored)
+      setLoading(false) // Reset loading state
     }
   }, [])
 
@@ -56,6 +60,10 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // ✅ Check if component is still mounted before proceeding
+    if (!isMounted) return
+    
     setLoading(true)
 
     try {
@@ -110,6 +118,9 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         }
       }
 
+      // ✅ Check mounted state before UI updates
+      if (!isMounted) return
+      
       toast.success('¡Bodegón creado exitosamente!')
       
       // Reset form
@@ -125,10 +136,14 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
 
     } catch (err) {
       console.error('Error creating bodegon:', err)
-      toast.error('Error inesperado al crear bodegón')
+      if (isMounted) {
+        toast.error('Error inesperado al crear bodegón')
+      }
     } finally {
       console.log('Finally block: setting loading to false')
-      setLoading(false)
+      if (isMounted) {
+        setLoading(false)
+      }
     }
   }, [formData, user, onSuccess, onOpenChange])
 

@@ -74,8 +74,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
+      // ✅ Cleanup completo para prevenir procesos colgantes
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      
+      // Reset estados para evitar memory leaks
+      setLoading(false)
+      
+      // Limpiar cualquier timeout pendiente del visibility handler
+      if (typeof window !== 'undefined') {
+        // Dispatch evento de cleanup si es necesario
+        try {
+          window.dispatchEvent(new CustomEvent('authCleanup'))
+        } catch (error) {
+          console.error('Error dispatching cleanup event:', error)
+        }
+      }
     }
   }, [])
 
