@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ArrowLeftIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useSupabase } from "@/contexts/supabase-context"
 import { SupabaseClient } from "@supabase/supabase-js"
 import { toast } from "sonner"
 
@@ -106,6 +107,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
   const [subcategoryPopoverOpen, setSubcategoryPopoverOpen] = useState(false)
 
   const { user } = useAuth()
+  const { client } = useSupabase()
 
   // Load categories - Nuclear Solution
   const loadCategories = async () => {
@@ -252,12 +254,10 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
   const loadProductBodegones = async (productId: string) => {
 
     try {
-      const { data: inventoryData, error } = await executeQuery(
-        (client: SupabaseClient) => client
-          .from('bodegon_inventories')
-          .select('bodegon_id')
-          .eq('product_id', productId)
-      )
+      const { data: inventoryData, error } = await client
+        .from('bodegon_inventories')
+        .select('bodegon_id')
+        .eq('product_id', productId)
 
       if (error) {
         console.error('Error loading product bodegones:', error)
