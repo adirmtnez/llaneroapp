@@ -6,8 +6,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, StoreIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon } from "lucide-react"
+import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, StoreIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon, CirclePlusIcon } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import { AddBodegonModal } from "../../modals/add-bodegon-modal"
 import { EditBodegonModal } from "../../modals/edit-bodegon-modal"
@@ -20,7 +21,7 @@ import { toast } from "sonner"
 import { SupabaseClient } from "@supabase/supabase-js"
 
 export function BodegonesLocView() {
-  const [selectedFilter, setSelectedFilter] = useState('Todos')
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -42,7 +43,7 @@ export function BodegonesLocView() {
 
   const { user } = useAuth()
 
-  const filterOptions = ['Todos', 'Activos', 'Inactivos']
+  const statusFilterOptions = ['Activos', 'Inactivos']
 
   // Load bodegones from Supabase
   const loadBodegones = async (isMountedRef?: { current: boolean }) => {
@@ -54,94 +55,65 @@ export function BodegonesLocView() {
       setError('')
       
       const filters: Record<string, unknown> = {}
-      if (selectedFilter !== 'Todos') {
-        filters.is_active = selectedFilter === 'Activos'
+      if (selectedStatusFilters.length > 0) {
+        // If both Activos and Inactivos are selected, don't apply filter (show all)
+        if (selectedStatusFilters.length === 1) {
+          filters.is_active = selectedStatusFilters.includes('Activos')
+        }
       }
       if (searchTerm) {
         filters.search = searchTerm
       }
 
-      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo para cargar datos
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        setError('Error de autenticación')
-        setIsLoading(false)
-        return
-      }
+      // 🚀 NUCLEAR CLIENT V2.0 - Solución híbrida optimizada  
+      const { executeNuclearQuery } = await import('@/utils/nuclear-client')
       
-      if (!accessToken) {
-        setError('Token de autenticación no válido')
-        setIsLoading(false)
-        return
-      }
-      
-      // Crear cliente fresco para carga de datos
-      const { createClient } = await import('@supabase/supabase-js')
-      const loadClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
+      // 🚀 Query usando Nuclear Client V2.0 con auto-recovery
+      const { data: bodegones, error: serviceError } = await executeNuclearQuery(
+        async (client) => {
+          let query = client.from('bodegons').select('*')
+          
+          // Aplicar filtros
+          if (filters.is_active !== undefined) {
+            query = query.eq('is_active', filters.is_active)
           }
-        }
+          if (filters.search) {
+            query = query.ilike('name', `%${filters.search}%`)
+          }
+          
+          query = query.order('name', { ascending: true })
+          return await query
+        },
+        false // No mostrar toast automático en este caso
       )
       
-      // Query directo sin pasar por BodegonService corrupto
-      let query = loadClient.from('bodegons').select('*')
-      
-      // Aplicar filtros
-      if (filters.is_active !== undefined) {
-        query = query.eq('is_active', filters.is_active)
-      }
-      if (filters.search) {
-        query = query.ilike('name', `%${filters.search}%`)
-      }
-      
-      query = query.order('name', { ascending: true })
-      
-      const { data: bodegones, error: serviceError } = await query
-      
-      if (serviceError) {
-        const errorMessage = 'Error al cargar bodegones: ' + serviceError.message
+      if (serviceError || !bodegones) {
+        const errorMessage = serviceError || 'Error al cargar bodegones'
         setError(errorMessage)
         toast.error(errorMessage)
         setBodegones([])
         return
       }
 
-      if (!bodegones) {
-        setBodegones([])
-        return
-      }
-
-      // ✅ Obtener conteo de productos para cada bodegón (también con cliente fresco)
+      // ✅ Obtener conteo de productos para cada bodegón con Nuclear Client
       const transformedData = await Promise.all(
         bodegones.map(async (bodegon) => {
-          try {
-            const { count, error: countError } = await loadClient
-              .from('bodegon_inventories')
-              .select('*', { count: 'exact', head: true })
-              .eq('bodegon_id', bodegon.id)
-              .eq('is_available_at_bodegon', true)
+          const { data: countResult, error: countError } = await executeNuclearQuery(
+            async (client) => {
+              const { count, error } = await client
+                .from('bodegon_inventories')
+                .select('*', { count: 'exact', head: true })
+                .eq('bodegon_id', bodegon.id)
+                .eq('is_available_at_bodegon', true)
+              
+              return { data: count, error }
+            },
+            false // No mostrar toast en conteos
+          )
 
-            if (countError) {
-              return { ...bodegon, product_count: 0 }
-            }
-
-            return { ...bodegon, product_count: count || 0 }
-          } catch (err) {
-            return { ...bodegon, product_count: 0 }
+          return { 
+            ...bodegon, 
+            product_count: countError ? 0 : (countResult || 0)
           }
         })
       )
@@ -196,7 +168,7 @@ export function BodegonesLocView() {
       isMounted = false
       setIsLoading(false)
     }
-  }, [selectedFilter, searchTerm])
+  }, [selectedStatusFilters, searchTerm])
 
   const paginatedBodegones = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -226,42 +198,43 @@ export function BodegonesLocView() {
     setIsDeleting(true)
     
     try {
-      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
-      const { createNuclearClient } = await import('@/utils/nuclear-client')
-      const nuclearClient = await createNuclearClient()
+      // 🚀 NUCLEAR CLIENT V2.0 - Solución híbrida optimizada
+      const { executeNuclearQuery, nuclearDelete } = await import('@/utils/nuclear-client')
       
-      if (!nuclearClient) {
-        toast.error('No se pudo crear cliente nuclear para eliminar bodegón')
-        setIsDeleting(false)
-        return
-      }
-      
-      // Obtener bodegón primero para verificar si tiene logo
-      const { data: bodegon, error: getError } = await nuclearClient
-        .from('bodegons')
-        .select('logo_url')
-        .eq('id', itemToDelete.id)
-        .single()
+      // 1. Obtener bodegón para verificar si tiene logo
+      const { data: bodegon, error: getError } = await executeNuclearQuery(
+        async (client) => {
+          const { data, error } = await client
+            .from('bodegons')
+            .select('logo_url')
+            .eq('id', itemToDelete.id)
+            .single()
+          return { data, error }
+        }
+      )
 
-      if (getError) {
-        toast.error('Error al obtener datos del bodegón: ' + getError.message)
+      if (getError || !bodegon) {
         setIsDeleting(false)
-        return
+        return // Error ya manejado por Nuclear Client
       }
 
-      // Eliminar inventarios relacionados primero
-      const { error: inventoryDeleteError } = await nuclearClient
-        .from('bodegon_inventories')
-        .delete()
-        .eq('bodegon_id', itemToDelete.id)
+      // 2. Eliminar inventarios relacionados primero
+      const { error: inventoryDeleteError } = await executeNuclearQuery(
+        async (client) => {
+          const { error } = await client
+            .from('bodegon_inventories')
+            .delete()
+            .eq('bodegon_id', itemToDelete.id)
+          return { data: null, error }
+        }
+      )
 
       if (inventoryDeleteError) {
-        toast.error('Error al eliminar inventarios: ' + inventoryDeleteError.message)
         setIsDeleting(false)
-        return
+        return // Error ya manejado por Nuclear Client
       }
 
-      // Eliminar logo del storage si existe
+      // 3. Eliminar logo del storage si existe
       if (bodegon?.logo_url) {
         try {
           const { S3StorageService } = await import('@/services/s3-storage')
@@ -271,16 +244,12 @@ export function BodegonesLocView() {
         }
       }
 
-      // Eliminar bodegón
-      const { error: deleteError } = await nuclearClient
-        .from('bodegons')
-        .delete()
-        .eq('id', itemToDelete.id)
+      // 4. Eliminar bodegón usando Nuclear Delete V2.0
+      const { error: deleteError } = await nuclearDelete('bodegons', itemToDelete.id)
       
       if (deleteError) {
-        toast.error('Error al eliminar bodegón: ' + deleteError.message)
         setIsDeleting(false)
-        return
+        return // Error ya manejado por Nuclear Client
       }
 
       toast.success(`Bodegón "${itemToDelete.name}" eliminado exitosamente`)
@@ -364,18 +333,46 @@ export function BodegonesLocView() {
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-col gap-4 p-4 border-b md:flex-row md:items-center md:justify-between">
-            <div className="flex rounded-md border w-full md:w-auto">
-              {filterOptions.map((filter) => (
-                <Button
-                  key={filter}
-                  variant={selectedFilter === filter ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-none first:rounded-l-md last:rounded-r-md flex-1 md:flex-none h-10 md:h-8 text-base md:text-sm"
-                  onClick={() => setSelectedFilter(filter)}
-                >
-                  {filter}
-                </Button>
-              ))}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Status Filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-10 md:h-9 text-base md:text-sm justify-start">
+                    <CirclePlusIcon className="w-4 h-4 text-gray-600 mr-1.5" />
+                    Estado
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-2">
+                  <div className="space-y-2">
+                    {statusFilterOptions.map((option) => (
+                      <div key={option} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${option}`}
+                          checked={selectedStatusFilters.includes(option)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedStatusFilters([...selectedStatusFilters, option])
+                            } else {
+                              setSelectedStatusFilters(selectedStatusFilters.filter(f => f !== option))
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`status-${option}`}
+                          className="flex items-center gap-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          <div className={`w-2 h-2 rounded-full ${
+                            option === 'Activos' 
+                              ? 'bg-green-500' 
+                              : 'bg-gray-500'
+                          }`} />
+                          {option}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             
             <div className="flex items-center gap-2">

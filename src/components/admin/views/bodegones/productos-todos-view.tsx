@@ -430,6 +430,22 @@ export function BodegonesProductosTodosView() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
+  // ✅ Limpiar subcategorías seleccionadas cuando se desmarquen sus categorías padre
+  useEffect(() => {
+    if (selectedCategories.length > 0) {
+      // Filtrar subcategorías que ya no tienen su categoría padre seleccionada
+      const validSubcategories = selectedSubcategories.filter(subId => {
+        const subcategory = subcategories.find(sub => sub.id === subId)
+        return subcategory && selectedCategories.includes(subcategory.parent_category)
+      })
+      
+      // Si hay subcategorías inválidas, actualizar el estado
+      if (validSubcategories.length !== selectedSubcategories.length) {
+        setSelectedSubcategories(validSubcategories)
+      }
+    }
+  }, [selectedCategories, subcategories, selectedSubcategories])
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640)
@@ -611,12 +627,24 @@ export function BodegonesProductosTodosView() {
                 </PopoverTrigger>
                 <PopoverContent className="w-[200px] p-2">
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {subcategories.length === 0 ? (
-                      <div className="text-sm text-gray-500 p-2">
-                        No hay subcategorías disponibles
-                      </div>
-                    ) : (
-                      subcategories.map((subcategory) => (
+                    {(() => {
+                      // ✅ Filtrar subcategorías basadas en categorías seleccionadas
+                      const filteredSubcategories = selectedCategories.length > 0
+                        ? subcategories.filter(sub => selectedCategories.includes(sub.parent_category))
+                        : subcategories
+                      
+                      if (filteredSubcategories.length === 0) {
+                        return (
+                          <div className="text-sm text-gray-500 p-2">
+                            {selectedCategories.length > 0 
+                              ? "No hay subcategorías para las categorías seleccionadas"
+                              : "No hay subcategorías disponibles"
+                            }
+                          </div>
+                        )
+                      }
+                      
+                      return filteredSubcategories.map((subcategory) => (
                       <div key={subcategory.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`subcategory-${subcategory.id}`}
@@ -637,7 +665,7 @@ export function BodegonesProductosTodosView() {
                         </label>
                       </div>
                       ))
-                    )}
+                    })()}
                   </div>
                 </PopoverContent>
               </Popover>

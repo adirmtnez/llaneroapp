@@ -61,33 +61,8 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     setLoading(true)
 
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        // Error reading token
-      }
-      
-      if (!accessToken) {
-        toast.error('No se pudo obtener token de autenticación, recarga la página')
-        setLoading(false)
-        return
-      }
-      
-      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
-      const { createNuclearClient } = await import('@/utils/nuclear-client')
-      const nuclearClient = await createNuclearClient()
-      
-      if (!nuclearClient) {
-        toast.error('No se pudo crear cliente nuclear')
-        setLoading(false)
-        return
-      }
+      // 🚀 NUCLEAR CLIENT V2.0 - Solución híbrida optimizada
+      const { nuclearInsert, nuclearUpdate } = await import('@/utils/nuclear-client')
       
       // ✅ Capturar valores directamente del DOM
       const formElement = (e.target as HTMLFormElement)
@@ -114,22 +89,16 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         modified_date: new Date().toISOString(),
       }
       
-      const { data: bodegon, error: createError } = await nuclearClient
-        .from('bodegons')
-        .insert(insertData)
-        .select()
-        .single()
+      // 🚀 Usar Nuclear Insert V2.0 con auto-recovery
+      const { data: bodegon, error: createError } = await nuclearInsert(
+        'bodegons',
+        insertData,
+        '*'
+      )
 
-      if (createError) {
-        toast.error('Error al crear bodegón: ' + createError.message)
+      if (createError || !bodegon) {
         setLoading(false)
-        return
-      }
-
-      if (!bodegon) {
-        toast.error('Error: No se pudo obtener el bodegón creado')
-        setLoading(false)
-        return
+        return // Error ya manejado por Nuclear Client
       }
 
       // Upload logo if provided
@@ -142,10 +111,15 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         if (uploadError) {
           toast.error('Error al subir logo: ' + uploadError.message)
         } else if (uploadData?.url) {
-          const { error: updateError } = await BodegonService.update(client, bodegon.id, { logo_url: uploadData.url })
+          // 🚀 Usar Nuclear Update V2.0 para actualizar logo
+          const { error: updateError } = await nuclearUpdate(
+            'bodegons',
+            Array.isArray(bodegon) ? bodegon[0].id : bodegon.id,
+            { logo_url: uploadData.url }
+          )
           
           if (updateError) {
-            toast.error('Error al actualizar bodegón con logo: ' + updateError.message)
+            toast.error('Error al actualizar bodegón con logo: ' + updateError)
           }
         }
       }
@@ -168,7 +142,7 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
     } finally {
       setLoading(false)
     }
-  }, [formData, user, onSuccess, onOpenChange, client])
+  }, [formData, user, onSuccess, onOpenChange])
 
   const handleCancel = useCallback(() => {
     if (loading) return // Prevent closing during loading

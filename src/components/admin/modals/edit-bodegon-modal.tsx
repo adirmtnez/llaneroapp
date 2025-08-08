@@ -74,41 +74,8 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
     setLoading(true)
 
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        setLoading(false)
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token de autenticación no válido, recarga la página')
-        setLoading(false)
-        return
-      }
-      
-      // Crear cliente fresco para edición
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
+      // 🚀 NUCLEAR CLIENT V2.0 - Solución híbrida optimizada
+      const { nuclearUpdate } = await import('@/utils/nuclear-client')
       
       // ✅ Capturar valores directamente del DOM
       const formElement = (e.target as HTMLFormElement)
@@ -149,17 +116,17 @@ export function EditBodegonModal({ open, onOpenChange, onSuccess, bodegon }: Edi
         }
       }
 
-      const { data: result, error: updateError } = await nuclearClient
-        .from('bodegons')
-        .update(updateData)
-        .eq('id', bodegon.id)
-        .select()
-        .single()
+      // 🚀 Usar Nuclear Update V2.0 con auto-recovery
+      const { data: result, error: updateError } = await nuclearUpdate(
+        'bodegons',
+        bodegon.id,
+        updateData,
+        '*'
+      )
 
-      if (updateError) {
-        toast.error('Error al actualizar bodegón: ' + updateError.message)
+      if (updateError || !result) {
         setLoading(false)
-        return
+        return // Error ya manejado por Nuclear Client
       }
 
       toast.success('¡Bodegón actualizado exitosamente!')

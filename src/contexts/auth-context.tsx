@@ -21,134 +21,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // ✅ LISTENERS INTELIGENTES - Reactivar con filtrado inteligente
-    console.log('🔧 AuthProvider: Inicializando auth listeners en producción')
+    // 🚫 LISTENERS DESHABILITADOS - Volver a estrategia estable
+    // Los auth listeners causan problemas al cambiar pestañas
+    // Usando Nuclear Client V2.0 para todas las operaciones críticas
+    console.log('🔧 AuthProvider: Listeners deshabilitados para estabilidad')
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🎯 AuthProvider: Auth state changed:', event, 'Session exists:', !!session)
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserProfile(session.user)
-        } else if (event === 'SIGNED_OUT') {
-          // 🧠 LÓGICA INTELIGENTE: Solo procesar SIGNED_OUT legítimos
-          const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-          
-          // Si NO hay token en localStorage, es logout intencional - procesar siempre
-          if (!localToken) {
-            console.log('AuthProvider: ✅ Procesando SIGNED_OUT legítimo - no hay token localStorage')
-            setUser(null)
-            setLoading(false)
-            return
-          }
-          
-          // Si hay token, verificar si es válido para detectar falsos SIGNED_OUT
-          try {
-            const parsed = JSON.parse(localToken)
-            const expiresAt = parsed?.expires_at * 1000
-            const isTokenValid = Date.now() < expiresAt
-            
-            if (isTokenValid && session === null) {
-              console.log('AuthProvider: 🚫 Ignorando SIGNED_OUT falso - token localStorage válido')
-              return // NO resetear usuario en eventos falsos
-            }
-          } catch (e) {
-            console.log('Error verificando token localStorage:', e)
-          }
-          
-          console.log('AuthProvider: ✅ Procesando SIGNED_OUT legítimo')
-          setUser(null)
-          setLoading(false)
-        }
-      }
-    )
+    const subscription = null // ✅ No listeners problemáticos
 
-    // ✅ REACTIVADO - Handle page visibility changes con smart recovery
-    const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        console.log('🔍 Page became visible, checking session intelligently...')
-        
-        try {
-          // 🧠 LÓGICA INTELIGENTE: Solo recuperar sesión si no hay usuario actual o está corrupto
-          if (user && !loading) {
-            console.log('✅ Usuario ya cargado y válido, saltando verificación')
-            return
-          }
-          
-          // Verificar localStorage primero
-          const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-          if (!localToken) {
-            console.log('🚫 No hay token localStorage, usuario no logueado')
-            setUser(null)
-            setLoading(false)
-            return
-          }
-          
-          // Verificar si token es válido
-          try {
-            const parsed = JSON.parse(localToken)
-            const expiresAt = parsed?.expires_at * 1000
-            const isTokenValid = Date.now() < expiresAt
-            
-            if (!isTokenValid) {
-              console.log('⏰ Token localStorage expirado, limpiando')
-              localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-              setUser(null)
-              setLoading(false)
-              return
-            }
-          } catch {
-            console.log('❌ Token localStorage corrupto, limpiando')
-            localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-            setUser(null)
-            setLoading(false)
-            return
-          }
-          
-          // Solo aquí hacer verificación de sesión Supabase
-          const { data: { session }, error } = await supabase.auth.getSession()
-          
-          if (error) {
-            console.error('Error getting session:', error)
-            // No resetear usuario inmediatamente, podría ser error temporal
-            console.log('⚠️  Error temporal de sesión, manteniendo estado actual')
-            return
-          }
-          
-          if (session?.user && !user) {
-             console.log('🔄 Sesión válida encontrada, cargando perfil de usuario...')
-             await loadUserProfile(session.user)
-             
-             // Dispatch event para que otros componentes se enteren
-             setTimeout(() => {
-               console.log('📡 Dispatching authRestored event')
-               window.dispatchEvent(new CustomEvent('authRestored'))
-             }, 200)
-           } else if (!session?.user && user) {
-             console.log('🚪 No hay sesión válida pero hay usuario local, verificando...')
-             // Podría ser desconexión temporal, no resetear inmediatamente
-             console.log('⏳ Esperando para confirmar desconexión...')
-           }
-        } catch (error) {
-          console.error('Error refreshing session on visibility change:', error)
-          // NO resetear usuario en errores, podría ser temporal
-          console.log('⚠️  Error en visibility handler, manteniendo estado actual')
-        }
-      }
-    }
-
-    // ✅ LISTENER ACTIVO - Recovery inteligente al cambiar pestañas
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    // 🚫 VISIBILITY LISTENER DESHABILITADO - Causa problemas de corrupción
+    // El Nuclear Client V2.0 maneja la recuperación automática de token
+    console.log('🔧 AuthProvider: Visibility listener deshabilitado para estabilidad')
 
     return () => {
-      // ✅ Cleanup completo para prevenir procesos colgantes
-      console.log('🧹 AuthProvider: Limpiando listeners y estados')
-      
-      if (subscription) {
-        subscription.unsubscribe()
-      }
-      
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      // ✅ Cleanup simplificado - no hay listeners activos
+      console.log('🧹 AuthProvider: Cleanup completado')
+      // No hay listeners que limpiar
       
       // Reset estados para evitar memory leaks
       setLoading(false)
