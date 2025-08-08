@@ -6,7 +6,6 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { InicioView } from './views/inicio-view'
 import { BodegonesLocView } from './views/bodegones/localidades-view'
 import { BodegonesPedView } from './views/bodegones/pedidos-view'
-import { BodegonesProdView } from './views/bodegones/productos-view'
 import { BodegonesProductosTodosView } from './views/bodegones/productos-todos-view'
 import { BodegonesCatView } from './views/bodegones/categorias-view'
 import { BodegonesSubcatView } from './views/bodegones/subcategorias-view'
@@ -66,7 +65,7 @@ export function AdminContent() {
       case 'bodegones-pedidos':
         return <BodegonesPedView />
       case 'bodegones-productos':
-        return <BodegonesProdView />
+        return <BodegonesProductosTodosView />
       case 'bodegones-productos-todos':
         return <BodegonesProductosTodosView />
       case 'bodegones-categorias':

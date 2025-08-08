@@ -66,37 +66,14 @@ export function BodegonesProductosTodosView() {
     if (isMountedRef && !isMountedRef.current) return
     
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo para cargar categorías
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
+      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
+      const { createNuclearClient } = await import('@/utils/nuclear-client')
+      const loadClient = await createNuclearClient()
+      
+      if (!loadClient) {
+        console.error('No se pudo crear cliente nuclear para categorías')
         return
       }
-      
-      if (!accessToken) {
-        return
-      }
-      
-      // Crear cliente fresco para carga de categorías
-      const { createClient } = await import('@supabase/supabase-js')
-      const loadClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
 
       // Query categorías activas
       const { data: categoriesData, error: categoriesError } = await loadClient
@@ -191,41 +168,15 @@ export function BodegonesProductosTodosView() {
       setIsLoading(true)
       setError('')
 
-      // ✅ SOLUCIÓN NUCLEAR - Cliente completamente nuevo para cargar productos
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        setError('Error de autenticación')
+      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
+      const { createNuclearClient } = await import('@/utils/nuclear-client')
+      const loadClient = await createNuclearClient()
+      
+      if (!loadClient) {
+        setError('No se pudo crear cliente nuclear para productos')
         setIsLoading(false)
         return
       }
-      
-      if (!accessToken) {
-        setError('Token de autenticación no válido')
-        setIsLoading(false)
-        return
-      }
-      
-      // Crear cliente fresco para carga de productos
-      const { createClient } = await import('@supabase/supabase-js')
-      const loadClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
 
       // Query productos con joins a categorías y subcategorías
       let query = loadClient
@@ -329,41 +280,15 @@ export function BodegonesProductosTodosView() {
     try {
       setDeletingId(productToDelete.id)
 
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        setDeletingId(null)
-        return
-      }
+      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
+      const { createNuclearClient } = await import('@/utils/nuclear-client')
+      const nuclearClient = await createNuclearClient()
       
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
+      if (!nuclearClient) {
+        toast.error('No se pudo crear cliente nuclear para eliminar producto')
         setDeletingId(null)
         return
       }
-
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
 
       // First delete associated bodegon_inventories
       const { error: inventoryError } = await nuclearClient
@@ -808,7 +733,7 @@ export function BodegonesProductosTodosView() {
                           <PackageIcon className="w-5 h-5 text-gray-400" />
                         </div>
                         <div className="flex flex-col min-w-0 flex-1 pr-4">
-                          <span className="font-medium text-sm truncate max-w-[180px] sm:max-w-none">{product.name}</span>
+                          <span className="font-medium text-xs capitalize truncate max-w-[180px] sm:max-w-none">{product.name.toLowerCase()}</span>
                           {product.bar_code && (
                             <span className="text-xs text-gray-500 truncate">Código: {product.bar_code}</span>
                           )}

@@ -226,41 +226,15 @@ export function BodegonesLocView() {
     setIsDeleting(true)
     
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Obtener token del localStorage directamente
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
+      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
+      const { createNuclearClient } = await import('@/utils/nuclear-client')
+      const nuclearClient = await createNuclearClient()
+      
+      if (!nuclearClient) {
+        toast.error('No se pudo crear cliente nuclear para eliminar bodegón')
         setIsDeleting(false)
         return
       }
-      
-      if (!accessToken) {
-        toast.error('Token de autenticación no válido, recarga la página')
-        setIsDeleting(false)
-        return
-      }
-      
-      // Crear cliente fresco para eliminación
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
       
       // Obtener bodegón primero para verificar si tiene logo
       const { data: bodegon, error: getError } = await nuclearClient

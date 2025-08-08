@@ -93,27 +93,17 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading])
 
-  // Listen for auth state changes
+  // ❌ LISTENERS COMPLETAMENTE DESHABILITADOS - Multiple GoTrueClient instances issue
+  // CAUSA: Múltiples clientes Supabase están causando conflictos de estado
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('SupabaseProvider: Auth state changed:', event)
-        
-        if (event === 'SIGNED_IN' && session) {
-          setSession(session)
-          setSessionState('valid')
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null)
-          setSessionState('invalid')
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          console.log('SupabaseProvider: Token refreshed')
-          setSession(session)
-          setSessionState('valid')
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    console.log('SupabaseProvider: Auth listeners DESHABILITADOS para prevenir conflictos')
+    
+    // NO crear subscription para evitar múltiples listeners
+    // La aplicación funcionará solo con tokens directos del localStorage
+    
+    return () => {
+      console.log('SupabaseProvider: Cleanup - no subscription to unsubscribe')
+    }
   }, [])
 
   // Handle page visibility changes

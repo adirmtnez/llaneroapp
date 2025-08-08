@@ -21,17 +21,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserProfile(session.user)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setLoading(false)
-        }
-      }
-    )
+    // ❌ LISTENERS COMPLETAMENTE DESHABILITADOS - Multiple GoTrueClient instances issue
+    // Listen for auth changes - DESHABILITADO para prevenir conflictos
+    console.log('AuthProvider: Auth listeners DESHABILITADOS para prevenir múltiples clientes')
+    
+    // La aplicación funcionará solo con tokens directos del localStorage
+    // NO crear subscription para evitar múltiples GoTrueClient instances
 
     // ❌ TEMPORALMENTE DESACTIVADO - Handle page visibility changes
     // CAUSA: Este handler está reseteando el usuario al cambiar pestañas
@@ -81,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       // ✅ Cleanup completo para prevenir procesos colgantes
-      subscription.unsubscribe()
+      // No subscription to unsubscribe - listeners deshabilitados
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       
       // Reset estados para evitar memory leaks

@@ -15,6 +15,7 @@ if (!supabaseAnonKey) {
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
-    autoRefreshToken: true,
+    autoRefreshToken: false, // ❌ Deshabilitado para prevenir conflictos con solución nuclear
+    detectSessionInUrl: false, // ❌ Prevenir detección automática que causa múltiples clients
   },
 })

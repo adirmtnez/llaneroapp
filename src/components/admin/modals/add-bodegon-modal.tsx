@@ -82,23 +82,15 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
         return
       }
       
-      // Crear cliente completamente nuevo con token directo
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: {
-            persistSession: false,
-          },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
+      // ✅ SOLUCIÓN NUCLEAR OPTIMIZADA - Usar cliente centralizado
+      const { createNuclearClient } = await import('@/utils/nuclear-client')
+      const nuclearClient = await createNuclearClient()
+      
+      if (!nuclearClient) {
+        toast.error('No se pudo crear cliente nuclear')
+        setLoading(false)
+        return
+      }
       
       // ✅ Capturar valores directamente del DOM
       const formElement = (e.target as HTMLFormElement)

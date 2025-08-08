@@ -250,11 +250,45 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
     loadCategories()
   }, [])
 
-  // Load product bodegones when editing
+  // Load product bodegones when editing - Nuclear Solution
   const loadProductBodegones = async (productId: string) => {
-
     try {
-      const { data: inventoryData, error } = await client
+      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
+      let accessToken: string | null = null
+      try {
+        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (supabaseSession) {
+          const parsedSession = JSON.parse(supabaseSession)
+          accessToken = parsedSession?.access_token
+        }
+      } catch (error) {
+        console.error('Error de autenticación:', error)
+        return
+      }
+      
+      if (!accessToken) {
+        console.error('Token no válido')
+        return
+      }
+
+      // Crear cliente fresco
+      const { createClient } = await import('@supabase/supabase-js')
+      const nuclearClient = createClient(
+        'https://zykwuzuukrmgztpgnbth.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+        {
+          auth: { persistSession: false },
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        }
+      )
+
+      // Ejecutar operación directa
+      const { data: inventoryData, error } = await nuclearClient
         .from('bodegon_inventories')
         .select('bodegon_id')
         .eq('product_id', productId)
@@ -264,6 +298,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         return
       }
 
+      // Operación completada exitosamente
       if (inventoryData) {
         const bodegonIds = inventoryData.map(item => item.bodegon_id)
         console.log('Loaded bodegones for product:', productId, bodegonIds)
