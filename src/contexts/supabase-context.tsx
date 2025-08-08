@@ -95,9 +95,11 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 
   // ✅ LISTENERS INTELIGENTES - Filtrar eventos falsos pero mantener reactividad
   useEffect(() => {
+    console.log('🔧 SupabaseProvider: Inicializando auth listeners en producción')
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('SupabaseProvider: Auth state changed:', event)
+        console.log('🎯 SupabaseProvider: Auth state changed:', event, 'Session exists:', !!session)
         
         if (event === 'SIGNED_IN' && session) {
           setSession(session)
@@ -140,8 +142,10 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     )
 
     return () => {
-      console.log('SupabaseProvider: Unsubscribing auth listener')
-      subscription.unsubscribe()
+      console.log('🧹 SupabaseProvider: Limpiando auth listener')
+      if (subscription) {
+        subscription.unsubscribe()
+      }
     }
   }, [])
 

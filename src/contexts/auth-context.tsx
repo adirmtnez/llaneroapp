@@ -22,9 +22,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     // ✅ LISTENERS INTELIGENTES - Reactivar con filtrado inteligente
+    console.log('🔧 AuthProvider: Inicializando auth listeners en producción')
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthProvider: Auth state changed:', event)
+        console.log('🎯 AuthProvider: Auth state changed:', event, 'Session exists:', !!session)
         
         if (event === 'SIGNED_IN' && session?.user) {
           await loadUserProfile(session.user)
@@ -109,7 +111,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       // ✅ Cleanup completo para prevenir procesos colgantes
-      // No subscription to unsubscribe - listeners deshabilitados
+      console.log('🧹 AuthProvider: Limpiando listeners y estados')
+      
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+      
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       
       // Reset estados para evitar memory leaks
