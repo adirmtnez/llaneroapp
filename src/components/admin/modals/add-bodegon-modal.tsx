@@ -10,8 +10,6 @@ import { StoreIcon, Loader2 } from "lucide-react"
 import { BodegonService } from "@/services/bodegons"
 import { S3StorageService as StorageService } from "@/services/s3-storage"
 import { useAuth } from "@/contexts/auth-context"
-import { useSupabase } from "@/contexts/supabase-context"
-import { supabase } from "@/lib/supabase"  // ✅ Cliente fresco directo
 import { toast } from "sonner"
 
 interface AddBodegonModalProps {
@@ -32,7 +30,6 @@ export function AddBodegonModal({ open, onOpenChange, onSuccess }: AddBodegonMod
   const [isMounted, setIsMounted] = useState(true) // ✅ Flag para prevenir setState después del unmount
 
   const { user } = useAuth()
-  const { client } = useSupabase()
 
   useEffect(() => {
     const checkDevice = () => {
