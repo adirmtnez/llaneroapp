@@ -252,91 +252,168 @@ import { SimpleFormTemplate } from "@/components/admin/templates/simple-form-tem
 - ✅ **Validación básica** y manejo de estados
 - ✅ **Patrones consistentes** con el resto de la app
 
-## Solución Nuclear para Supabase SPA
+## 🚀 Nuclear Client V2.0 - Solución Híbrida para Estabilidad SPA
 
-### 🚨 Problema Identificado
-Al cambiar pestañas del navegador o minimizar/maximizar la ventana, los contextos de Supabase se corrompían, causando que las operaciones se colgaran indefinidamente y requirieran recargar la página.
+### 🚨 Problema Resuelto
+Al cambiar pestañas del navegador o minimizar/maximizar la ventana, los contextos de Supabase se corrompían, causando que las operaciones CRUD se colgaran indefinidamente y requirieran recargar la página. Este problema afectaba la experiencia del usuario en producción.
 
-### ✅ Solución Nuclear Implementada
-Para operaciones críticas CRUD, implementamos una "solución nuclear" que:
+### ✅ Nuclear Client V2.0 - Arquitectura Híbrida
+**Commit de referencia**: `2765b25` - Solución completamente estable y probada en producción.
 
-1. **Bypass de contextos corruptos**: No usar `useSupabase()` ni `useAuth()` para operaciones
-2. **Token directo del localStorage**: Leer `sb-zykwuzuukrmgztpgnbth-auth-token` directamente
-3. **Cliente fresco**: Crear nuevo cliente Supabase para cada operación
-4. **Credenciales hardcodeadas**: Usar URL y anon key directamente en el código
+La solución híbrida combina:
+1. **Auth Listeners Deshabilitados**: Elimina la corrupción de contextos
+2. **Nuclear Client Optimizado**: Cliente inteligente con auto-recovery
+3. **Operaciones CRUD Centralizadas**: API unificada para todas las operaciones
 
-### 📝 Patrón de Implementación
+### 🔧 Características del Nuclear Client V2.0
 
+#### **Auto-Recovery Inteligente**
+- ✅ **3 reintentos automáticos** con backoff exponencial
+- ✅ **Detección de errores JWT/Token** para reintentos específicos
+- ✅ **Validación de token con margen de 5 minutos** de seguridad
+- ✅ **Cache inteligente** para reutilizar clientes válidos
+
+#### **API Unificada**
 ```typescript
-// ✅ SOLUCIÓN NUCLEAR - Patrón a seguir
-const handleOperation = async () => {
-  // 1. Obtener token del localStorage
-  let accessToken: string | null = null
-  try {
-    const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-    if (supabaseSession) {
-      const parsedSession = JSON.parse(supabaseSession)
-      accessToken = parsedSession?.access_token
-    }
-  } catch (error) {
-    toast.error('Error de autenticación')
-    return
-  }
-  
-  if (!accessToken) {
-    toast.error('Token no válido, recarga la página')
-    return
-  }
-  
-  // 2. Crear cliente fresco
-  const { createClient } = await import('@supabase/supabase-js')
-  const nuclearClient = createClient(
-    'https://zykwuzuukrmgztpgnbth.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-    {
-      auth: { persistSession: false },
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+// 🚀 Importar Nuclear Client V2.0
+import { 
+  nuclearInsert,
+  nuclearUpdate,
+  nuclearDelete,
+  nuclearSelect,
+  executeNuclearQuery 
+} from '@/utils/nuclear-client'
+```
+
+### 📚 Patrones de Uso Nuclear Client V2.0
+
+#### **1. Operaciones CRUD Simples**
+```typescript
+// ✅ CREAR - Nuclear Insert
+const { data, error } = await nuclearInsert(
+  'bodegons',
+  insertData,
+  '*'  // select opcional
+)
+
+// ✅ ACTUALIZAR - Nuclear Update  
+const { data, error } = await nuclearUpdate(
+  'bodegons',
+  bodegonId,
+  updateData,
+  '*'  // select opcional
+)
+
+// ✅ ELIMINAR - Nuclear Delete
+const { error } = await nuclearDelete('bodegons', bodegonId)
+
+// ✅ LEER - Nuclear Select
+const { data, error } = await nuclearSelect(
+  'bodegons',
+  '*',
+  { is_active: true }  // filtros opcionales
+)
+```
+
+#### **2. Queries Complejas**
+```typescript
+// ✅ QUERIES PERSONALIZADAS - executeNuclearQuery
+const { data, error } = await executeNuclearQuery(
+  async (client) => {
+    return await client
+      .from('bodegons')
+      .select(`
+        *,
+        bodegon_inventories(count)
+      `)
+      .eq('is_active', true)
+      .order('name')
+  },
+  false,  // showUserError - opcional
+  'Error personalizado'  // customErrorMessage - opcional
+)
+```
+
+#### **3. Operaciones con Transacciones**
+```typescript
+// ✅ MÚLTIPLES OPERACIONES EN SECUENCIA
+const handleComplexOperation = async () => {
+  // 1. Crear registro principal
+  const { data: bodegon, error: createError } = await nuclearInsert(
+    'bodegons', insertData, '*'
+  )
+  if (createError) return
+
+  // 2. Actualizar registros relacionados
+  const { error: updateError } = await executeNuclearQuery(
+    async (client) => {
+      return await client
+        .from('bodegon_inventories')
+        .update({ bodegon_id: bodegon.id })
+        .eq('temp_id', tempId)
     }
   )
-  
-  // 3. Ejecutar operación directa
-  const { data, error } = await nuclearClient
-    .from('tabla')
-    .operation()
-    
-  // 4. Manejar resultado
-  if (error) {
-    toast.error('Error: ' + error.message)
-    return
-  }
-  
-  // Operación completada exitosamente
+  if (updateError) return
+
+  // 3. Operación completada exitosamente
+  toast.success('Operación completada exitosamente')
 }
 ```
 
-### 🎯 Aplicado En:
-- ✅ **Crear bodegones**: `add-bodegon-modal.tsx`
-- ✅ **Leer bodegones**: `localidades-view.tsx` (loadBodegones)
-- ✅ **Editar bodegones**: `edit-bodegon-modal.tsx`
-- ✅ **Eliminar bodegones**: `localidades-view.tsx` (handleDeleteConfirm)
+### 🎯 Implementado En (Nuclear V2.0)
 
-### 🔄 Para Futuros Módulos:
-**IMPORTANTE**: Aplicar este patrón a todos los nuevos módulos CRUD:
-- Restaurantes (productos, categorías, subcategorías)
-- Repartidores
-- Métodos de pago
-- Cualquier operación crítica que pueda fallar tras cambios de pestaña
+#### **✅ Bodegones - Completamente Migrado**
+- `add-bodegon-modal.tsx` - Nuclear Insert V2.0
+- `edit-bodegon-modal.tsx` - Nuclear Update V2.0  
+- `localidades-view.tsx` - executeNuclearQuery para cargas y Nuclear Delete
+- `productos-todos-view.tsx` - Server-side pagination + filtros condicionales
 
-### ⚠️ Consideraciones de Seguridad:
-- **Anon Key expuesta**: La key pública de Supabase está en el código (esto es normal)
-- **RLS activo**: Row Level Security protege los datos a nivel de base de datos
-- **Token de usuario**: Se usa el token real del usuario autenticado
-- **Sin persistencia**: Los clientes no guardan sesión (`persistSession: false`)
+#### **✅ Características Adicionales Implementadas**
+- **Filtros con popover** reemplazando tabs en bodegones
+- **Subcategorías condicionales** basadas en categorías seleccionadas
+- **Server-side pagination** optimizada para tablas grandes
+
+### 🔄 Patrón para Nuevos Módulos
+
+```typescript
+// 🏗️ PLANTILLA PARA NUEVOS MÓDULOS
+const handleCRUDOperation = async () => {
+  // Siempre usar Nuclear Client V2.0
+  const { nuclearInsert, nuclearUpdate } = await import('@/utils/nuclear-client')
+  
+  // Operaciones automáticamente incluyen:
+  // ✅ Auto-recovery con 3 reintentos
+  // ✅ Validación de token inteligente
+  // ✅ Manejo de errores con toast integrado
+  // ✅ Cache optimizado para performance
+  
+  const { data, error } = await nuclearInsert('tabla', data, '*')
+  if (error) return // Error ya manejado automáticamente
+  
+  // Continuar con lógica de negocio...
+}
+```
+
+### 🛡️ Estabilidad y Seguridad
+
+#### **Auth Context Optimizado**
+- ✅ **Listeners deshabilitados** - No más corrupción por cambio de pestañas
+- ✅ **Validación inicial simple** - Solo carga perfil en mount
+- ✅ **Token management automático** - Nuclear Client maneja tokens
+
+#### **Seguridad Mantenida**
+- ✅ **Row Level Security (RLS)** activo en Supabase
+- ✅ **Token real del usuario** siempre validado
+- ✅ **Anon key pública** (comportamiento normal de Supabase)
+- ✅ **Sin persistencia de sesión** en clientes nuclear
+
+### 📈 Beneficios Comprobados
+
+1. **🚫 Cero problemas** al cambiar pestañas
+2. **🔄 Auto-recovery** automático en errores temporales  
+3. **⚡ Performance mejorada** con cache inteligente
+4. **🎯 UX consistente** con manejo de errores centralizado
+5. **🛠️ Mantenible** con API unificada para CRUD
 
 ## Notas Importantes
 
@@ -345,7 +422,68 @@ const handleOperation = async () => {
 - Mantener consistencia en la estructura de archivos y naming conventions
 - **Usar Git Flow** para todas las nuevas funcionalidades y releases
 - **Aplicar estándares mobile** en todos los nuevos componentes con formularios
-- **Usar Solución Nuclear** para operaciones CRUD críticas en nuevos módulos
+- **OBLIGATORIO: Usar Nuclear Client V2.0** para todas las operaciones CRUD
+- **Referencia estable**: Commit `2765b25` funciona perfectamente en producción
+
+## ⚠️ Troubleshooting Nuclear Client V2.0
+
+### 🔍 Diagnóstico de Problemas
+
+#### **1. Error "Sesión expirada"**
+```bash
+# Síntoma: Toast "Sesión expirada - por favor inicia sesión nuevamente"
+# Causa: Token localStorage expirado o corrupto
+# Solución: Usuario debe hacer logout/login
+```
+
+#### **2. Operaciones que Fallan**
+```bash  
+# Síntoma: Reintentos automáticos sin éxito
+# Causa posible: Problemas de red o RLS
+# Diagnóstico: Revisar console.log para errores específicos
+```
+
+#### **3. Performance Lenta**
+```bash
+# Síntoma: Operaciones tardan más de 3-5 segundos
+# Causa posible: Cache corrupto
+# Solución: Usar clearNuclearCache() manualmente
+```
+
+### 🛠️ Herramientas de Debugging
+
+#### **Limpiar Cache Nuclear**
+```typescript
+import { clearNuclearCache } from '@/utils/nuclear-client'
+
+// En caso de problemas, limpiar cache
+const handleClearCache = () => {
+  clearNuclearCache()
+  toast.success('Cache nuclear limpiado')
+}
+```
+
+#### **Monitoring en Console**
+- ✅ `🚫 Nuclear Client:` - Errores de token/validación
+- ✅ `🔄 Reintentando operación nuclear` - Auto-recovery en progreso  
+- ✅ `💥 Nuclear Query Error` - Errores finales tras reintentos
+- ✅ `🧹 Nuclear Client cache limpiado` - Cache resetado
+
+### 📋 Checklist para Nuevos Desarrolladores
+
+#### **✅ Al Implementar Nuevos Módulos:**
+1. **Importar Nuclear Client V2.0** - Nunca crear clientes manuales
+2. **Usar utilidades CRUD** - nuclearInsert, nuclearUpdate, etc.
+3. **No manejar errores manualmente** - Nuclear Client tiene toast integrado
+4. **No usar contextos Supabase** para operaciones críticas
+5. **Probar cambios de pestañas** - Validar que operaciones no fallan
+
+#### **🚫 Qué NO Hacer:**
+- ❌ Crear clientes Supabase manuales con createClient()
+- ❌ Usar useSupabase() para operaciones CRUD críticas  
+- ❌ Manejar token manualmente del localStorage
+- ❌ Reactivar auth listeners sin coordinación
+- ❌ Implementar reintentos manuales (ya incluidos)
 
 ## Optimización de Tablas con Paginación Server-Side
 
