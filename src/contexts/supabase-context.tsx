@@ -93,16 +93,55 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading])
 
-  // ❌ LISTENERS COMPLETAMENTE DESHABILITADOS - Multiple GoTrueClient instances issue
-  // CAUSA: Múltiples clientes Supabase están causando conflictos de estado
+  // ✅ LISTENERS INTELIGENTES - Filtrar eventos falsos pero mantener reactividad
   useEffect(() => {
-    console.log('SupabaseProvider: Auth listeners DESHABILITADOS para prevenir conflictos')
-    
-    // NO crear subscription para evitar múltiples listeners
-    // La aplicación funcionará solo con tokens directos del localStorage
-    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('SupabaseProvider: Auth state changed:', event)
+        
+        if (event === 'SIGNED_IN' && session) {
+          setSession(session)
+          setSessionState('valid')
+        } else if (event === 'SIGNED_OUT') {
+          // 🧠 LÓGICA INTELIGENTE: Verificar si es un SIGNED_OUT falso
+          const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+          
+          // Si NO hay token en localStorage, es logout intencional - procesar siempre
+          if (!localToken) {
+            console.log('SupabaseProvider: ✅ Procesando SIGNED_OUT legítimo - no hay token localStorage')
+            setSession(null)
+            setSessionState('invalid')
+            return
+          }
+          
+          // Si hay token, verificar si es válido para detectar falsos SIGNED_OUT
+          try {
+            const parsed = JSON.parse(localToken)
+            const expiresAt = parsed?.expires_at * 1000
+            const isTokenValid = Date.now() < expiresAt
+            
+            if (isTokenValid && session === null) {
+              console.log('SupabaseProvider: 🚫 Ignorando SIGNED_OUT falso - token localStorage válido')
+              return // NO procesar evento falso
+            }
+          } catch (e) {
+            console.log('Error verificando token localStorage:', e)
+          }
+          
+          console.log('SupabaseProvider: ✅ Procesando SIGNED_OUT legítimo')
+          setSession(null)
+          setSessionState('invalid')
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('SupabaseProvider: Token refreshed')
+          setSession(session)
+          setSessionState('valid')
+        }
+      }
+    )
+
     return () => {
-      console.log('SupabaseProvider: Cleanup - no subscription to unsubscribe')
+      console.log('SupabaseProvider: Unsubscribing auth listener')
+      subscription.unsubscribe()
     }
   }, [])
 

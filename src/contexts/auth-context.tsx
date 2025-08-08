@@ -21,12 +21,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // ❌ LISTENERS COMPLETAMENTE DESHABILITADOS - Multiple GoTrueClient instances issue
-    // Listen for auth changes - DESHABILITADO para prevenir conflictos
-    console.log('AuthProvider: Auth listeners DESHABILITADOS para prevenir múltiples clientes')
-    
-    // La aplicación funcionará solo con tokens directos del localStorage
-    // NO crear subscription para evitar múltiples GoTrueClient instances
+    // ✅ LISTENERS INTELIGENTES - Reactivar con filtrado inteligente
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('AuthProvider: Auth state changed:', event)
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          await loadUserProfile(session.user)
+        } else if (event === 'SIGNED_OUT') {
+          // 🧠 LÓGICA INTELIGENTE: Solo procesar SIGNED_OUT legítimos
+          const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+          
+          // Si NO hay token en localStorage, es logout intencional - procesar siempre
+          if (!localToken) {
+            console.log('AuthProvider: ✅ Procesando SIGNED_OUT legítimo - no hay token localStorage')
+            setUser(null)
+            setLoading(false)
+            return
+          }
+          
+          // Si hay token, verificar si es válido para detectar falsos SIGNED_OUT
+          try {
+            const parsed = JSON.parse(localToken)
+            const expiresAt = parsed?.expires_at * 1000
+            const isTokenValid = Date.now() < expiresAt
+            
+            if (isTokenValid && session === null) {
+              console.log('AuthProvider: 🚫 Ignorando SIGNED_OUT falso - token localStorage válido')
+              return // NO resetear usuario en eventos falsos
+            }
+          } catch (e) {
+            console.log('Error verificando token localStorage:', e)
+          }
+          
+          console.log('AuthProvider: ✅ Procesando SIGNED_OUT legítimo')
+          setUser(null)
+          setLoading(false)
+        }
+      }
+    )
 
     // ❌ TEMPORALMENTE DESACTIVADO - Handle page visibility changes
     // CAUSA: Este handler está reseteando el usuario al cambiar pestañas
@@ -257,29 +290,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    try {
-      // Intentar logout normal de Supabase
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('Error signing out from Supabase:', error)
-        // NO hacer throw - continuar con limpieza local
-      }
-    } catch (error) {
-      console.error('Unexpected error during signOut:', error)
-      // Continuar con limpieza local aún si Supabase falla
-    }
-    
-    // SIEMPRE limpiar estado local, independientemente de errores de Supabase
+    // ✅ CRÍTICO: Limpiar token ANTES de llamar a signOut
+    // Esto previene que smart listeners ignoren el SIGNED_OUT legítimo
     try {
       localStorage.removeItem('adminCurrentView')
-      localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token') // ✅ Limpiar token nuclear
+      localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token') // ✅ Limpiar ANTES
     } catch (error) {
       console.error('Error clearing localStorage:', error)
     }
     
-    // Limpiar estado del contexto
+    // Limpiar estado del contexto inmediatamente
     setUser(null)
     setLoading(false)
+    
+    try {
+      // Intentar logout de Supabase (puede disparar evento SIGNED_OUT)
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Error signing out from Supabase:', error)
+        // NO hacer throw - ya limpiamos el estado local
+      }
+    } catch (error) {
+      console.error('Unexpected error during signOut:', error)
+      // Estado ya limpiado arriba
+    }
   }
 
   const updateProfile = async (updates: UserProfileUpdate): Promise<{ error: Error | null }> => {

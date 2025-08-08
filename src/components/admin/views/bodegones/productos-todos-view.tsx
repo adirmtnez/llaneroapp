@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon, CirclePlusIcon } from "lucide-react"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { BodegonProductWithDetails, ProductStatusFilter } from "@/types/products"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
@@ -41,6 +41,7 @@ export function BodegonesProductosTodosView() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [isLoading, setIsLoading] = useState(true)
@@ -49,6 +50,7 @@ export function BodegonesProductosTodosView() {
   const [categories, setCategories] = useState<{id: string, name: string}[]>([])
   const [subcategories, setSubcategories] = useState<{id: string, name: string, parent_category: string}[]>([])
   const [error, setError] = useState<string>('')
+  const [totalCount, setTotalCount] = useState(0) // ✅ Total de productos para paginación
   const [showAddProduct, setShowAddProduct] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
@@ -157,7 +159,7 @@ export function BodegonesProductosTodosView() {
     }
   }
 
-  // Load products from Supabase with nuclear solution
+  // Load products from Supabase with SERVER-SIDE PAGINATION
   const loadProducts = async (isMountedRef?: { current: boolean }) => {
     // Don't load if session is not ready or valid
     
@@ -178,14 +180,8 @@ export function BodegonesProductosTodosView() {
         return
       }
 
-      // Query productos con joins a categorías y subcategorías
-      let query = loadClient
-        .from('bodegon_products')
-        .select(`
-          *,
-          bodegon_categories!category_id(id, name),
-          bodegon_subcategories!subcategory_id(id, name)
-        `)
+      // 🚀 STEP 1: Construir la base query con filtros
+      let baseQuery = loadClient.from('bodegon_products')
 
       // Aplicar filtros de estado
       if (selectedFilters.length > 0) {
@@ -205,28 +201,88 @@ export function BodegonesProductosTodosView() {
         }
         
         if (orConditions.length > 0) {
-          query = query.or(orConditions.join(','))
+          baseQuery = baseQuery.or(orConditions.join(','))
         }
       }
 
       // Aplicar filtros de categoría
       if (selectedCategories.length > 0) {
-        query = query.in('category_id', selectedCategories)
+        baseQuery = baseQuery.in('category_id', selectedCategories)
       }
 
       // Aplicar filtros de subcategoría
       if (selectedSubcategories.length > 0) {
-        query = query.in('subcategory_id', selectedSubcategories)
+        baseQuery = baseQuery.in('subcategory_id', selectedSubcategories)
       }
 
-      // Filtrar por búsqueda
-      if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,bar_code.ilike.%${searchTerm}%`)
+      // Filtrar por búsqueda (usar term debouncado)
+      if (debouncedSearchTerm) {
+        baseQuery = baseQuery.or(`name.ilike.%${debouncedSearchTerm}%,sku.ilike.%${debouncedSearchTerm}%,bar_code.ilike.%${debouncedSearchTerm}%`)
       }
 
-      query = query.order('created_date', { ascending: false })
+      // 🚀 STEP 2: Obtener el total count (sin joins para mejor rendimiento)
+      const { count, error: countError } = await baseQuery
+        .select('*', { count: 'exact', head: true })
       
-      const { data: productsData, error: serviceError } = await query
+      if (countError) {
+        console.error('Error getting count:', countError)
+        setTotalCount(0)
+      } else {
+        setTotalCount(count || 0)
+      }
+
+      // 🚀 STEP 3: Obtener productos paginados con joins
+      const startIndex = (currentPage - 1) * pageSize
+      const endIndex = startIndex + pageSize - 1
+
+      let paginatedQuery = loadClient
+        .from('bodegon_products')
+        .select(`
+          *,
+          bodegon_categories!category_id(id, name),
+          bodegon_subcategories!subcategory_id(id, name)
+        `)
+
+      // Aplicar los mismos filtros para la query paginada
+      if (selectedFilters.length > 0) {
+        const orConditions: string[] = []
+        
+        if (selectedFilters.includes('Activos')) {
+          orConditions.push('is_active_product.eq.true')
+        }
+        if (selectedFilters.includes('Inactivos')) {
+          orConditions.push('is_active_product.eq.false')
+        }
+        if (selectedFilters.includes('En Descuento')) {
+          orConditions.push('is_discount.eq.true')
+        }
+        if (selectedFilters.includes('En Promoción')) {
+          orConditions.push('is_promo.eq.true')
+        }
+        
+        if (orConditions.length > 0) {
+          paginatedQuery = paginatedQuery.or(orConditions.join(','))
+        }
+      }
+
+      if (selectedCategories.length > 0) {
+        paginatedQuery = paginatedQuery.in('category_id', selectedCategories)
+      }
+
+      if (selectedSubcategories.length > 0) {
+        paginatedQuery = paginatedQuery.in('subcategory_id', selectedSubcategories)
+      }
+
+      if (debouncedSearchTerm) {
+        paginatedQuery = paginatedQuery.or(`name.ilike.%${debouncedSearchTerm}%,sku.ilike.%${debouncedSearchTerm}%,bar_code.ilike.%${debouncedSearchTerm}%`)
+      }
+
+      // 🚀 Aplicar paginación y ordenamiento
+      paginatedQuery = paginatedQuery
+        .order('created_date', { ascending: false })
+        .range(startIndex, endIndex)
+      
+      const { data: productsData, error: serviceError } = await paginatedQuery
       
       if (serviceError) {
         const errorMessage = 'Error al cargar productos: ' + serviceError.message
@@ -259,6 +315,7 @@ export function BodegonesProductosTodosView() {
       setError(errorMessage)
       toast.error(errorMessage)
       setProducts([])
+      setTotalCount(0)
     } finally {
       setIsLoading(false)
     }
@@ -353,7 +410,7 @@ export function BodegonesProductosTodosView() {
     }
   }, [])
 
-  // Load products when session is ready and filters change
+  // Load products when session is ready and filters change (including currentPage for server-side pagination)
   useEffect(() => {
     let isMounted = true // ✅ Flag para prevenir setState en componentes desmontados
 
@@ -379,7 +436,17 @@ export function BodegonesProductosTodosView() {
       isMounted = false
       setIsLoading(false)
     }
-  }, [selectedFilters, selectedCategories, selectedSubcategories, searchTerm])
+  }, [selectedFilters, selectedCategories, selectedSubcategories, debouncedSearchTerm, currentPage, pageSize]) // ✅ Usar debouncedSearchTerm
+
+  // ✅ DEBOUNCE para búsqueda - evitar consultas excesivas
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+      setCurrentPage(1) // Resetear a página 1 cuando hay nueva búsqueda
+    }, 500) // 500ms de delay
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -391,17 +458,10 @@ export function BodegonesProductosTodosView() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Los productos ya vienen filtrados de la consulta, solo paginamos
-  const filteredProducts = useMemo(() => {
-    return products
-  }, [products])
+  // ✅ SERVER-SIDE PAGINATION: Los productos ya vienen paginados del servidor
+  const paginatedProducts = products // Los productos ya están paginados
 
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize
-    return filteredProducts.slice(startIndex, startIndex + pageSize)
-  }, [filteredProducts, currentPage, pageSize])
-
-  const totalPages = Math.ceil(filteredProducts.length / pageSize)
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   const handlePageSizeChange = (newSize: string) => {
     setPageSize(Number(newSize))
@@ -812,10 +872,10 @@ export function BodegonesProductosTodosView() {
             </TableBody>
           </Table>
 
-          {filteredProducts.length > 0 && (
+          {totalCount > 0 && (
             <div className="flex flex-col gap-4 px-4 py-4 border-t md:flex-row md:items-center md:justify-between">
               <div className="text-sm text-gray-600 text-center md:text-left">
-                Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, filteredProducts.length)} de {filteredProducts.length} resultados
+                Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, totalCount)} de {totalCount} resultados
               </div>
               
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-4">
@@ -829,6 +889,7 @@ export function BodegonesProductosTodosView() {
                       <SelectItem value="10">10</SelectItem>
                       <SelectItem value="25">25</SelectItem>
                       <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -847,53 +908,96 @@ export function BodegonesProductosTodosView() {
                       <ChevronLeftIcon className="w-4 h-4" />
                     </Button>
                     
-                    {/* Números de página - Simplificado para mobile */}
+                    {/* Números de página - Lógica simplificada y corregida */}
                     <div className="flex items-center gap-1">
-                      {/* Primera página siempre visible */}
-                      <Button
-                        variant={currentPage === 1 ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setCurrentPage(1)}
-                        className="w-8 h-8 p-0 text-xs"
-                      >
-                        1
-                      </Button>
-                      
-                      {/* Solo mostrar páginas cercanas en mobile */}
-                      {currentPage > 3 && totalPages > 4 && <span className="px-1 text-gray-400 text-xs">...</span>}
-                      
-                      {/* Mostrar menos páginas en mobile */}
-                      {Array.from({ length: Math.min(isMobile ? 1 : 3, totalPages) }, (_, i) => {
-                        const pageNum = Math.max(2, Math.min(currentPage - 1 + i, totalPages - 1));
-                        if (pageNum === 1 || pageNum === totalPages) return null;
-                        if (pageNum < 2 || pageNum > totalPages - 1) return null;
+                      {(() => {
+                        const pages = []
+                        const maxVisiblePages = isMobile ? 5 : 7
                         
-                        return (
-                          <Button
-                            key={`page-${pageNum}-${i}`}
-                            variant={currentPage === pageNum ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0 text-xs"
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
-                      
-                      {currentPage < totalPages - 2 && totalPages > 4 && <span className="px-1 text-gray-400 text-xs">...</span>}
-                      
-                      {/* Última página si hay más de 1 */}
-                      {totalPages > 1 && (
-                        <Button
-                          variant={currentPage === totalPages ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => setCurrentPage(totalPages)}
-                          className="w-8 h-8 p-0 text-xs"
-                        >
-                          {totalPages}
-                        </Button>
-                      )}
+                        if (totalPages <= maxVisiblePages) {
+                          // Mostrar todas las páginas si son pocas
+                          for (let i = 1; i <= totalPages; i++) {
+                            pages.push(
+                              <Button
+                                key={i}
+                                variant={currentPage === i ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setCurrentPage(i)}
+                                className="w-8 h-8 p-0 text-xs"
+                              >
+                                {i}
+                              </Button>
+                            )
+                          }
+                        } else {
+                          // Primera página
+                          pages.push(
+                            <Button
+                              key={1}
+                              variant={currentPage === 1 ? "default" : "ghost"}
+                              size="sm"
+                              onClick={() => setCurrentPage(1)}
+                              className="w-8 h-8 p-0 text-xs"
+                            >
+                              1
+                            </Button>
+                          )
+                          
+                          let startPage = Math.max(2, currentPage - 1)
+                          let endPage = Math.min(totalPages - 1, currentPage + 1)
+                          
+                          // Ajustar para mostrar suficientes páginas
+                          if (currentPage <= 3) {
+                            endPage = Math.min(totalPages - 1, 4)
+                          } else if (currentPage >= totalPages - 2) {
+                            startPage = Math.max(2, totalPages - 3)
+                          }
+                          
+                          // Puntos suspensivos iniciales
+                          if (startPage > 2) {
+                            pages.push(<span key="dots1" className="px-1 text-gray-400 text-xs">...</span>)
+                          }
+                          
+                          // Páginas intermedias
+                          for (let i = startPage; i <= endPage; i++) {
+                            if (i !== 1 && i !== totalPages) {
+                              pages.push(
+                                <Button
+                                  key={i}
+                                  variant={currentPage === i ? "default" : "ghost"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(i)}
+                                  className="w-8 h-8 p-0 text-xs"
+                                >
+                                  {i}
+                                </Button>
+                              )
+                            }
+                          }
+                          
+                          // Puntos suspensivos finales
+                          if (endPage < totalPages - 1) {
+                            pages.push(<span key="dots2" className="px-1 text-gray-400 text-xs">...</span>)
+                          }
+                          
+                          // Última página
+                          if (totalPages > 1) {
+                            pages.push(
+                              <Button
+                                key={totalPages}
+                                variant={currentPage === totalPages ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="w-8 h-8 p-0 text-xs"
+                              >
+                                {totalPages}
+                              </Button>
+                            )
+                          }
+                        }
+                        
+                        return pages
+                      })()}
                     </div>
                     
                     <Button

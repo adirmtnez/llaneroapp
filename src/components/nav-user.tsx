@@ -39,12 +39,12 @@ export function NavUser() {
   const handleLogout = async () => {
     try {
       await signOut()
-      // Forzar redirección inmediata sin depender de listeners
-      window.location.href = '/auth'
+      // Con smart listeners, podemos usar router normal
+      router.push('/auth')
     } catch (error) {
       console.error('Error during logout:', error)
       // Aún si hay error, redirigir para evitar estado inconsistente  
-      window.location.href = '/auth'
+      router.push('/auth')
     }
   }
 

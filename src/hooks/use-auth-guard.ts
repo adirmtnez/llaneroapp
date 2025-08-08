@@ -11,11 +11,13 @@ export function useAuthGuard() {
   useEffect(() => {
     if (!loading) {
       if (!user) {
+        // Con smart listeners, usar router normal
         router.push('/auth')
         return
       }
 
       if (!canAccessAdmin()) {
+        // Con smart listeners, usar router normal
         router.push('/auth')
         return
       }

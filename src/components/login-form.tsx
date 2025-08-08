@@ -49,8 +49,8 @@ export function LoginForm({
       }
 
       console.log('Login successful, redirecting to admin')
-      // Usar redirección forzada para evitar problemas con listeners deshabilitados
-      window.location.href = '/admin'
+      // Con smart listeners, podemos usar router normal
+      router.push('/admin')
 
     } catch (error) {
       console.error('Login error:', error)
