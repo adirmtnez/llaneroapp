@@ -63,50 +63,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    // ❌ TEMPORALMENTE DESACTIVADO - Handle page visibility changes
-    // CAUSA: Este handler está reseteando el usuario al cambiar pestañas
+    // ✅ REACTIVADO - Handle page visibility changes con smart recovery
     const handleVisibilityChange = async () => {
-      // ⚠️ DESACTIVADO TEMPORALMENTE PARA TESTING
-      console.log('Page visibility changed, but handler is disabled for testing')
-      return
-      
       if (!document.hidden) {
-        console.log('Page became visible, refreshing session...')
+        console.log('🔍 Page became visible, checking session intelligently...')
         
         try {
-          // Always check session when page becomes visible
-          const { data: { session }, error } = await supabase.auth.getSession()
+          // 🧠 LÓGICA INTELIGENTE: Solo recuperar sesión si no hay usuario actual o está corrupto
+          if (user && !loading) {
+            console.log('✅ Usuario ya cargado y válido, saltando verificación')
+            return
+          }
           
-          if (error) {
-            console.error('Error getting session:', error)
+          // Verificar localStorage primero
+          const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+          if (!localToken) {
+            console.log('🚫 No hay token localStorage, usuario no logueado')
             setUser(null)
             setLoading(false)
             return
           }
           
-          if (session?.user) {
-             console.log('Valid session found, loading user profile...')
+          // Verificar si token es válido
+          try {
+            const parsed = JSON.parse(localToken)
+            const expiresAt = parsed?.expires_at * 1000
+            const isTokenValid = Date.now() < expiresAt
+            
+            if (!isTokenValid) {
+              console.log('⏰ Token localStorage expirado, limpiando')
+              localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+              setUser(null)
+              setLoading(false)
+              return
+            }
+          } catch {
+            console.log('❌ Token localStorage corrupto, limpiando')
+            localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+            setUser(null)
+            setLoading(false)
+            return
+          }
+          
+          // Solo aquí hacer verificación de sesión Supabase
+          const { data: { session }, error } = await supabase.auth.getSession()
+          
+          if (error) {
+            console.error('Error getting session:', error)
+            // No resetear usuario inmediatamente, podría ser error temporal
+            console.log('⚠️  Error temporal de sesión, manteniendo estado actual')
+            return
+          }
+          
+          if (session?.user && !user) {
+             console.log('🔄 Sesión válida encontrada, cargando perfil de usuario...')
              await loadUserProfile(session.user)
              
-             // Wait a bit to ensure Supabase client is fully updated
+             // Dispatch event para que otros componentes se enteren
              setTimeout(() => {
-               console.log('Dispatching authRestored event')
+               console.log('📡 Dispatching authRestored event')
                window.dispatchEvent(new CustomEvent('authRestored'))
              }, 200)
-           } else {
-             console.log('No valid session found')
-             setUser(null)
-             setLoading(false)
+           } else if (!session?.user && user) {
+             console.log('🚪 No hay sesión válida pero hay usuario local, verificando...')
+             // Podría ser desconexión temporal, no resetear inmediatamente
+             console.log('⏳ Esperando para confirmar desconexión...')
            }
         } catch (error) {
           console.error('Error refreshing session on visibility change:', error)
-          setUser(null)
-          setLoading(false)
+          // NO resetear usuario en errores, podría ser temporal
+          console.log('⚠️  Error en visibility handler, manteniendo estado actual')
         }
       }
     }
 
-    // ✅ Mantenemos el listener pero el handler no hace nada crítico
+    // ✅ LISTENER ACTIVO - Recovery inteligente al cambiar pestañas
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
