@@ -73,7 +73,10 @@ export function BodegonesProductosTodosView() {
       const loadClient = await createNuclearClient()
       
       if (!loadClient) {
-        console.error('No se pudo crear cliente nuclear para categorías')
+        console.error('❌ No se pudo crear cliente nuclear para categorías')
+        // Limpiar sesión corrupta y redirigir
+        const { clearCorruptedSession } = await import('@/utils/nuclear-client')
+        clearCorruptedSession()
         return
       }
 
@@ -175,8 +178,13 @@ export function BodegonesProductosTodosView() {
       const loadClient = await createNuclearClient()
       
       if (!loadClient) {
+        console.error('❌ No se pudo crear cliente nuclear para productos')
         setError('No se pudo crear cliente nuclear para productos')
         setIsLoading(false)
+        
+        // Limpiar sesión corrupta y redirigir
+        const { clearCorruptedSession } = await import('@/utils/nuclear-client')
+        clearCorruptedSession()
         return
       }
 

@@ -25,17 +25,20 @@ const getValidToken = (): { token: string | null, error: string | null } => {
       return { token: null, error: 'Token no encontrado en sesión' }
     }
 
-    // Verificar expiración con margen de seguridad (5 minutos)
-    const expiresAt = parsedSession?.expires_at * 1000
-    const now = Date.now()
-    const safetyMargin = 5 * 60 * 1000 // 5 minutos
-    
-    if (now > (expiresAt - safetyMargin)) {
-      // Limpiar token expirado
-      localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-      cachedNuclearClient = null
-      lastTokenHash = null
-      return { token: null, error: 'Token expirado - por favor inicia sesión nuevamente' }
+    // Verificar expiración con margen de seguridad más conservador (1 minuto)
+    const expiresAt = parsedSession?.expires_at
+    if (expiresAt) {
+      const now = Date.now() / 1000 // Convert to seconds
+      const safetyMargin = 60 // 1 minuto en segundos
+      
+      if (now > (expiresAt - safetyMargin)) {
+        // Limpiar token expirado
+        localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        cachedNuclearClient = null
+        lastTokenHash = null
+        console.warn('🚫 Token expirado, limpiando sesión')
+        return { token: null, error: 'Token expirado - por favor inicia sesión nuevamente' }
+      }
     }
 
     return { token: accessToken, error: null }
@@ -49,7 +52,16 @@ export const createNuclearClient = async (forceNew = false) => {
   const { token: accessToken, error: tokenError } = getValidToken()
   
   if (tokenError || !accessToken) {
-    console.error('🚫 Nuclear Client:', tokenError)
+    console.error('🚫 Nuclear Client Token Error:', tokenError)
+    
+    // Si el token está expirado, intentar recargar la página para refrescar la sesión
+    if (tokenError === 'Token expirado - por favor inicia sesión nuevamente') {
+      console.warn('🔄 Token expirado, recargando página en 2 segundos...')
+      setTimeout(() => {
+        window.location.reload()
+      }, 2000)
+    }
+    
     return null
   }
 
@@ -130,13 +142,35 @@ export const executeNuclearQuery = async <T>(
           errorMessage.includes('timeout')
         )
         
+        // Detectar errores de autenticación que requieren limpieza de sesión
+        const shouldClearSession = (
+          errorCode === 'PGRST301' || // JWT expired
+          errorCode === 'PGRST302' || // JWT invalid
+          errorMessage.includes('JWT expired') ||
+          errorMessage.includes('invalid token') ||
+          errorMessage.includes('expired token')
+        )
+        
         if (shouldRetry && attempt < MAX_RETRIES) {
           console.warn(`🔄 Reintentando operación nuclear (${attempt + 1}/${MAX_RETRIES + 1}):`, errorMessage)
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))) // Backoff exponencial
           continue
         }
         
+        // Si es un error de autenticación y ya no se puede reintentar, limpiar sesión
+        if (shouldClearSession && attempt === MAX_RETRIES) {
+          console.error('🚫 Error de autenticación crítico, limpiando sesión')
+          clearCorruptedSession()
+          return { data: null, error: 'Sesión expirada' }
+        }
+        
         console.error('💥 Nuclear Query Error:', result.error)
+        console.error('💥 Error Details:', {
+          code: result.error.code,
+          message: result.error.message,
+          details: result.error.details,
+          hint: result.error.hint
+        })
         const finalError = customErrorMessage || errorMessage
         
         if (showUserError) {
@@ -169,6 +203,32 @@ export const executeNuclearQuery = async <T>(
   
   // Esta línea nunca debería ejecutarse, pero TypeScript la requiere
   return { data: null, error: 'Error inesperado' }
+}
+
+// 🔧 Función para limpiar sesión corrupta y recargar
+export const clearCorruptedSession = () => {
+  console.warn('🧹 Limpiando sesión corrupta...')
+  
+  // Mostrar toast de información al usuario
+  if (typeof window !== 'undefined' && (window as any).toast) {
+    (window as any).toast.error('Sesión expirada. Redirigiendo al login...')
+  }
+  
+  // Limpiar localStorage
+  try {
+    localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+    localStorage.removeItem('supabase.auth.token')
+  } catch (error) {
+    console.error('Error limpiando localStorage:', error)
+  }
+  
+  // Limpiar cache nuclear
+  clearNuclearCache()
+  
+  // Recargar página después de un breve delay
+  setTimeout(() => {
+    window.location.href = '/auth'
+  }, 1500)
 }
 
 // 🛠️ Utilidades específicas para operaciones CRUD comunes
