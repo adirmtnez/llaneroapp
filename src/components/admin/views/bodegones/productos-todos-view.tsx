@@ -180,58 +180,66 @@ export function BodegonesProductosTodosView() {
         return
       }
 
-      // 🚀 STEP 1: Construir la base query con filtros
-      let baseQuery = loadClient.from('bodegon_products')
+      // 🚀 Construir función helper para aplicar filtros
+      const applyFilters = (query: ReturnType<typeof loadClient['from']>) => {
+        // Aplicar filtros de estado con AND/OR correctos
+        if (selectedFilters.length > 0) {
+          const orConditions: string[] = []
+          
+          if (selectedFilters.includes('Activos')) {
+            orConditions.push('is_active_product.eq.true')
+          }
+          if (selectedFilters.includes('Inactivos')) {
+            orConditions.push('is_active_product.eq.false')
+          }
+          if (selectedFilters.includes('En Descuento')) {
+            orConditions.push('is_discount.eq.true')
+          }
+          if (selectedFilters.includes('En Promoción')) {
+            orConditions.push('is_promo.eq.true')
+          }
+          
+          // Solo aplicar condiciones OR si hay alguna
+          if (orConditions.length > 0) {
+            query = query.or(orConditions.join(','))
+          }
+        }
 
-      // Aplicar filtros de estado
-      if (selectedFilters.length > 0) {
-        const orConditions: string[] = []
-        
-        if (selectedFilters.includes('Activos')) {
-          orConditions.push('is_active_product.eq.true')
+        // Aplicar filtros de categoría (AND) - Solo si hay categorías seleccionadas
+        if (selectedCategories.length > 0) {
+          query = query.in('category_id', selectedCategories)
         }
-        if (selectedFilters.includes('Inactivos')) {
-          orConditions.push('is_active_product.eq.false')
+
+        // Aplicar filtros de subcategoría (AND) - Solo si hay subcategorías seleccionadas
+        if (selectedSubcategories.length > 0) {
+          query = query.in('subcategory_id', selectedSubcategories)
         }
-        if (selectedFilters.includes('En Descuento')) {
-          orConditions.push('is_discount.eq.true')
+
+        // Filtrar por búsqueda (OR entre campos) - Solo si hay término de búsqueda
+        if (debouncedSearchTerm && debouncedSearchTerm.trim()) {
+          const searchTerm = debouncedSearchTerm.trim()
+          // Escapar caracteres especiales para SQL LIKE
+          const escapedTerm = searchTerm.replace(/[%_\\]/g, '\\$&')
+          query = query.or(`name.ilike.%${escapedTerm}%,sku.ilike.%${escapedTerm}%,bar_code.ilike.%${escapedTerm}%`)
         }
-        if (selectedFilters.includes('En Promoción')) {
-          orConditions.push('is_promo.eq.true')
-        }
-        
-        if (orConditions.length > 0) {
-          baseQuery = baseQuery.or(orConditions.join(','))
-        }
+
+        return query
       }
 
-      // Aplicar filtros de categoría
-      if (selectedCategories.length > 0) {
-        baseQuery = baseQuery.in('category_id', selectedCategories)
-      }
-
-      // Aplicar filtros de subcategoría
-      if (selectedSubcategories.length > 0) {
-        baseQuery = baseQuery.in('subcategory_id', selectedSubcategories)
-      }
-
-      // Filtrar por búsqueda (usar term debouncado)
-      if (debouncedSearchTerm) {
-        baseQuery = baseQuery.or(`name.ilike.%${debouncedSearchTerm}%,sku.ilike.%${debouncedSearchTerm}%,bar_code.ilike.%${debouncedSearchTerm}%`)
-      }
-
-      // 🚀 STEP 2: Obtener el total count (sin joins para mejor rendimiento)
-      const { count, error: countError } = await baseQuery
-        .select('*', { count: 'exact', head: true })
+      // 🚀 STEP 1: Obtener el total count (sin joins para mejor rendimiento)
+      let countQuery = loadClient.from('bodegon_products').select('id', { count: 'exact', head: true })
+      countQuery = applyFilters(countQuery)
+      
+      const { count, error: countError } = await countQuery
       
       if (countError) {
         console.error('Error getting count:', countError)
-        setTotalCount(0)
-      } else {
-        setTotalCount(count || 0)
+        throw new Error(`Error en conteo: ${countError.message}`)
       }
+      
+      setTotalCount(count || 0)
 
-      // 🚀 STEP 3: Obtener productos paginados con joins
+      // 🚀 STEP 2: Obtener productos paginados con joins
       const startIndex = (currentPage - 1) * pageSize
       const endIndex = startIndex + pageSize - 1
 
@@ -243,39 +251,8 @@ export function BodegonesProductosTodosView() {
           bodegon_subcategories!subcategory_id(id, name)
         `)
 
-      // Aplicar los mismos filtros para la query paginada
-      if (selectedFilters.length > 0) {
-        const orConditions: string[] = []
-        
-        if (selectedFilters.includes('Activos')) {
-          orConditions.push('is_active_product.eq.true')
-        }
-        if (selectedFilters.includes('Inactivos')) {
-          orConditions.push('is_active_product.eq.false')
-        }
-        if (selectedFilters.includes('En Descuento')) {
-          orConditions.push('is_discount.eq.true')
-        }
-        if (selectedFilters.includes('En Promoción')) {
-          orConditions.push('is_promo.eq.true')
-        }
-        
-        if (orConditions.length > 0) {
-          paginatedQuery = paginatedQuery.or(orConditions.join(','))
-        }
-      }
-
-      if (selectedCategories.length > 0) {
-        paginatedQuery = paginatedQuery.in('category_id', selectedCategories)
-      }
-
-      if (selectedSubcategories.length > 0) {
-        paginatedQuery = paginatedQuery.in('subcategory_id', selectedSubcategories)
-      }
-
-      if (debouncedSearchTerm) {
-        paginatedQuery = paginatedQuery.or(`name.ilike.%${debouncedSearchTerm}%,sku.ilike.%${debouncedSearchTerm}%,bar_code.ilike.%${debouncedSearchTerm}%`)
-      }
+      // Aplicar los mismos filtros
+      paginatedQuery = applyFilters(paginatedQuery)
 
       // 🚀 Aplicar paginación y ordenamiento
       paginatedQuery = paginatedQuery
@@ -285,11 +262,8 @@ export function BodegonesProductosTodosView() {
       const { data: productsData, error: serviceError } = await paginatedQuery
       
       if (serviceError) {
-        const errorMessage = 'Error al cargar productos: ' + serviceError.message
-        setError(errorMessage)
-        toast.error(errorMessage)
-        setProducts([])
-        return
+        console.error('Error loading products:', serviceError)
+        throw new Error(`Error al cargar productos: ${serviceError.message}`)
       }
 
       if (!productsData) {
@@ -308,9 +282,17 @@ export function BodegonesProductosTodosView() {
       setProducts(transformedData)
       
     } catch (err) {
-      const errorMessage = err instanceof Error && err.message === 'Request timeout' 
-        ? 'La consulta tardó demasiado tiempo. Intenta de nuevo.'
-        : 'Error inesperado al cargar productos'
+      console.error('Full error in loadProducts:', err)
+      
+      let errorMessage = 'Error inesperado al cargar productos'
+      
+      if (err instanceof Error) {
+        if (err.message.includes('Request timeout') || err.message.includes('timeout')) {
+          errorMessage = 'La consulta tardó demasiado tiempo. Intenta de nuevo.'
+        } else if (err.message.includes('Error al cargar productos:') || err.message.includes('Error en conteo:')) {
+          errorMessage = err.message
+        }
+      }
       
       setError(errorMessage)
       toast.error(errorMessage)
