@@ -1,7 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { AlertTriangleIcon } from "lucide-react"
@@ -13,40 +15,35 @@ interface DeleteConfirmationModalProps {
   itemType?: string
   onConfirm: () => void
   isLoading?: boolean
+  requireNameConfirmation?: boolean
 }
 
-export function DeleteConfirmationModal({ 
-  open, 
-  onOpenChange, 
+interface ModalContentProps {
+  itemName: string
+  itemType: string
+  confirmationText: string
+  setConfirmationText: (value: string) => void
+  requireNameConfirmation: boolean
+  isLoading: boolean
+  onConfirm: () => void
+  onCancel: () => void
+  isDesktop: boolean
+}
+
+const ModalContentComponent = ({ 
   itemName, 
-  itemType = "elemento", 
+  itemType, 
+  confirmationText, 
+  setConfirmationText,
+  requireNameConfirmation,
+  isLoading,
   onConfirm,
-  isLoading = false
-}: DeleteConfirmationModalProps) {
-  const [isDesktop, setIsDesktop] = useState(true)
+  onCancel,
+  isDesktop
+}: ModalContentProps) => {
+  const isConfirmDisabled = isLoading || (requireNameConfirmation && confirmationText.trim() !== itemName.trim())
 
-  useEffect(() => {
-    const checkDevice = () => {
-      setIsDesktop(window.innerWidth >= 768)
-    }
-
-    checkDevice()
-    window.addEventListener('resize', checkDevice)
-    return () => window.removeEventListener('resize', checkDevice)
-  }, [])
-
-  const handleConfirm = () => {
-    onConfirm()
-    // Note: El modal se cierra desde el componente padre después de la eliminación exitosa
-  }
-
-  const handleCancel = () => {
-    if (!isLoading) {
-      onOpenChange(false)
-    }
-  }
-
-  const ModalContent = () => (
+  return (
     <div className="space-y-6">
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center shrink-0">
@@ -63,10 +60,33 @@ export function DeleteConfirmationModal({
         </div>
       </div>
 
+      {requireNameConfirmation && (
+        <div className="space-y-2">
+          <Label htmlFor="confirmName" className="text-sm font-medium text-gray-900">
+            Para confirmar, escribe <span className="font-semibold text-red-600">{itemName}</span>
+          </Label>
+          <Input
+            id="confirmName"
+            type="text"
+            placeholder={`Escribe "${itemName}" para confirmar`}
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            className="h-10 md:h-9 text-base md:text-sm"
+            disabled={isLoading}
+            autoComplete="off"
+          />
+          {confirmationText.trim() !== "" && confirmationText.trim() !== itemName.trim() && (
+            <p className="text-xs text-red-600">
+              El nombre no coincide. Debes escribir exactamente: {itemName}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className={`flex gap-3 ${!isDesktop ? 'flex-col-reverse' : 'flex-row-reverse'}`}>
         <Button
-          onClick={handleConfirm}
-          disabled={isLoading}
+          onClick={onConfirm}
+          disabled={isConfirmDisabled}
           variant="destructive"
           className="h-11 md:h-10 text-base md:text-sm"
         >
@@ -80,7 +100,7 @@ export function DeleteConfirmationModal({
           )}
         </Button>
         <Button
-          onClick={handleCancel}
+          onClick={onCancel}
           disabled={isLoading}
           variant="outline"
           className="h-11 md:h-10 text-base md:text-sm"
@@ -90,6 +110,52 @@ export function DeleteConfirmationModal({
       </div>
     </div>
   )
+}
+
+export function DeleteConfirmationModal({ 
+  open, 
+  onOpenChange, 
+  itemName, 
+  itemType = "elemento", 
+  onConfirm,
+  isLoading = false,
+  requireNameConfirmation = false
+}: DeleteConfirmationModalProps) {
+  const [isDesktop, setIsDesktop] = useState(true)
+  const [confirmationText, setConfirmationText] = useState("")
+
+  useEffect(() => {
+    const checkDevice = () => {
+      setIsDesktop(window.innerWidth >= 768)
+    }
+
+    checkDevice()
+    window.addEventListener('resize', checkDevice)
+    return () => window.removeEventListener('resize', checkDevice)
+  }, [])
+
+  // Reset confirmation text when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setConfirmationText("")
+    }
+  }, [open])
+
+  const handleConfirm = useCallback(() => {
+    // If name confirmation is required, check if the text matches
+    if (requireNameConfirmation && confirmationText.trim() !== itemName.trim()) {
+      return // Don't proceed if names don't match
+    }
+    
+    onConfirm()
+    // Note: El modal se cierra desde el componente padre después de la eliminación exitosa
+  }, [requireNameConfirmation, confirmationText, itemName, onConfirm])
+
+  const handleCancel = useCallback(() => {
+    if (!isLoading) {
+      onOpenChange(false)
+    }
+  }, [isLoading, onOpenChange])
 
   if (isDesktop) {
     return (
@@ -101,7 +167,17 @@ export function DeleteConfirmationModal({
               Confirma si deseas eliminar este elemento
             </DialogDescription>
           </DialogHeader>
-          <ModalContent />
+          <ModalContentComponent
+            itemName={itemName}
+            itemType={itemType}
+            confirmationText={confirmationText}
+            setConfirmationText={setConfirmationText}
+            requireNameConfirmation={requireNameConfirmation}
+            isLoading={isLoading}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+            isDesktop={isDesktop}
+          />
         </DialogContent>
       </Dialog>
     )
@@ -117,7 +193,17 @@ export function DeleteConfirmationModal({
           </DrawerDescription>
         </DrawerHeader>
         <div className="p-6">
-          <ModalContent />
+          <ModalContentComponent
+            itemName={itemName}
+            itemType={itemType}
+            confirmationText={confirmationText}
+            setConfirmationText={setConfirmationText}
+            requireNameConfirmation={requireNameConfirmation}
+            isLoading={isLoading}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+            isDesktop={isDesktop}
+          />
         </div>
       </DrawerContent>
     </Drawer>
