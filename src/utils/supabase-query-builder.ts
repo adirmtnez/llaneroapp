@@ -1,4 +1,4 @@
-import { createNuclearClient } from './nuclear-client'
+import { executeNuclearQuery } from './nuclear-client'
 
 export interface PaginatedQueryParams {
   tableName: string
@@ -36,91 +36,86 @@ export async function executePaginatedQuery<T = any>({
   orFilters = []
 }: PaginatedQueryParams): Promise<PaginatedQueryResult<T>> {
   
-  // Get nuclear client
-  const client = await createNuclearClient()
-  if (!client) {
-    throw new Error('No se pudo crear cliente nuclear')
-  }
+  // 🚀 STEP 1: Get total count using Nuclear Client V2.0
+  const countResult = await executeNuclearQuery<number>(async (client) => {
+    let baseQuery = client.from(tableName)
 
-  // 🚀 STEP 1: Build base query with filters (for count)
-  let baseQuery = client.from(tableName)
-
-  // Apply basic filters
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (Array.isArray(value)) {
-        baseQuery = baseQuery.in(key, value)
-      } else {
-        baseQuery = baseQuery.eq(key, value)
+    // Apply basic filters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        if (Array.isArray(value)) {
+          baseQuery = baseQuery.in(key, value)
+        } else {
+          baseQuery = baseQuery.eq(key, value)
+        }
       }
+    })
+
+    // Apply OR filters (like status combinations)
+    if (orFilters.length > 0) {
+      baseQuery = baseQuery.or(orFilters.join(','))
     }
-  })
 
-  // Apply OR filters (like status combinations)
-  if (orFilters.length > 0) {
-    baseQuery = baseQuery.or(orFilters.join(','))
-  }
+    // Apply search filters
+    if (searchTerm && searchColumns.length > 0) {
+      const searchConditions = searchColumns.map(col => `${col}.ilike.%${searchTerm}%`)
+      baseQuery = baseQuery.or(searchConditions.join(','))
+    }
 
-  // Apply search filters
-  if (searchTerm && searchColumns.length > 0) {
-    const searchConditions = searchColumns.map(col => `${col}.ilike.%${searchTerm}%`)
-    baseQuery = baseQuery.or(searchConditions.join(','))
-  }
-
-  // 🚀 STEP 2: Get total count (without joins for better performance)
-  const { count, error: countError } = await baseQuery
-    .select('*', { count: 'exact', head: true })
+    return await baseQuery.select('*', { count: 'exact', head: true })
+  }, false, 'Error al contar registros')
   
-  if (countError) {
-    console.error('Error getting count:', countError)
-    throw new Error(`Error al contar registros: ${countError.message}`)
+  if (countResult.error) {
+    throw new Error(countResult.error)
   }
 
-  const totalCount = count || 0
+  const totalCount = countResult.data || 0
 
-  // 🚀 STEP 3: Get paginated data with joins
+  // 🚀 STEP 2: Get paginated data using Nuclear Client V2.0
   const startIndex = (currentPage - 1) * pageSize
   const endIndex = startIndex + pageSize - 1
 
-  let paginatedQuery = client
-    .from(tableName)
-    .select(select)
+  const dataResult = await executeNuclearQuery<T[]>(async (client) => {
+    let paginatedQuery = client
+      .from(tableName)
+      .select(select)
 
-  // Apply the same filters to paginated query
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (Array.isArray(value)) {
-        paginatedQuery = paginatedQuery.in(key, value)
-      } else {
-        paginatedQuery = paginatedQuery.eq(key, value)
+    // Apply the same filters to paginated query
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        if (Array.isArray(value)) {
+          paginatedQuery = paginatedQuery.in(key, value)
+        } else {
+          paginatedQuery = paginatedQuery.eq(key, value)
+        }
       }
+    })
+
+    // Apply OR filters
+    if (orFilters.length > 0) {
+      paginatedQuery = paginatedQuery.or(orFilters.join(','))
     }
-  })
 
-  // Apply OR filters
-  if (orFilters.length > 0) {
-    paginatedQuery = paginatedQuery.or(orFilters.join(','))
-  }
+    // Apply search filters
+    if (searchTerm && searchColumns.length > 0) {
+      const searchConditions = searchColumns.map(col => `${col}.ilike.%${searchTerm}%`)
+      paginatedQuery = paginatedQuery.or(searchConditions.join(','))
+    }
 
-  // Apply search filters
-  if (searchTerm && searchColumns.length > 0) {
-    const searchConditions = searchColumns.map(col => `${col}.ilike.%${searchTerm}%`)
-    paginatedQuery = paginatedQuery.or(searchConditions.join(','))
-  }
+    // Apply ordering and pagination
+    paginatedQuery = paginatedQuery
+      .order(orderBy.column, { ascending: orderBy.ascending })
+      .range(startIndex, endIndex)
 
-  // Apply ordering and pagination
-  paginatedQuery = paginatedQuery
-    .order(orderBy.column, { ascending: orderBy.ascending })
-    .range(startIndex, endIndex)
+    return await paginatedQuery
+  }, false, 'Error al cargar datos paginados')
 
-  const { data, error: dataError } = await paginatedQuery
-
-  if (dataError) {
-    throw new Error(`Error al cargar datos: ${dataError.message}`)
+  if (dataResult.error) {
+    throw new Error(dataResult.error)
   }
 
   return {
-    data: data || [],
+    data: dataResult.data || [],
     totalCount
   }
 }

@@ -12,8 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ArrowLeftIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { SupabaseClient } from "@supabase/supabase-js"
 import { toast } from "sonner"
+import { nuclearSelect, nuclearInsert, nuclearUpdate, nuclearDelete, executeNuclearQuery } from '@/utils/nuclear-client'
 
 interface Product {
   id: string
@@ -37,6 +37,12 @@ interface Product {
 interface Category {
   id: string
   name: string
+}
+
+interface Subcategory {
+  id: string
+  name: string
+  parent_category: string
 }
 
 interface Bodegon {
@@ -107,73 +113,43 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
 
   const { user } = useAuth()
 
-  // Load categories - Nuclear Solution
+  // Load categories - Nuclear Client V2.0
   const loadCategories = async () => {
-
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
-        return
-      }
+      // Load categories using Nuclear Client V2.0
+      const categoriesResult = await executeNuclearQuery(async (client) => {
+        return await client
+          .from('bodegon_categories')
+          .select('id, name')
+          .order('name')
+      }, false) // Don't show user error automatically
 
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
+      // Load bodegones using Nuclear Client V2.0
+      const bodegonesResult = await executeNuclearQuery(async (client) => {
+        return await client
+          .from('bodegons')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name')
+      }, false) // Don't show user error automatically
 
-      // Ejecutar operaciones directas
-      const { data: categoriesData, error: categoriesError } = await nuclearClient
-        .from('bodegon_categories')
-        .select('id, name')
-        .order('name')
-
-      if (categoriesError) {
-        toast.error('Error al cargar categorías: ' + categoriesError.message)
+      if (categoriesResult.error) {
+        toast.error('Error al cargar categorías: ' + categoriesResult.error)
         return
       }
 
-      const { data: bodegonesData, error: bodegonesError } = await nuclearClient
-        .from('bodegons')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name')
-
-      if (bodegonesError) {
-        toast.error('Error al cargar bodegones: ' + bodegonesError.message)
+      if (bodegonesResult.error) {
+        toast.error('Error al cargar bodegones: ' + bodegonesResult.error)
         return
       }
 
-      // Operaciones completadas exitosamente
-      if (categoriesData) {
-        setCategories(categoriesData)
+      // Operations completed successfully
+      if (categoriesResult.data) {
+        setCategories(categoriesResult.data as Category[])
       }
 
-      if (bodegonesData) {
-        setBodegones(bodegonesData)
+      if (bodegonesResult.data) {
+        setBodegones(bodegonesResult.data as Bodegon[])
       }
 
     } catch (error) {
@@ -182,60 +158,27 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
     }
   }
 
-  // Load subcategories when category changes - Nuclear Solution
+  // Load subcategories when category changes - Nuclear Client V2.0
   const loadSubcategories = async (categoryId: string) => {
     if (!categoryId) return
 
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
+      const result = await executeNuclearQuery(async (client) => {
+        return await client
+          .from('bodegon_subcategories')
+          .select('id, name')
+          .eq('parent_category', categoryId)
+          .order('name')
+      }, false) // Don't show user error automatically
+
+      if (result.error) {
+        toast.error('Error al cargar subcategorías: ' + result.error)
         return
       }
 
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
-
-      // Ejecutar operación directa
-      const { data: subcategoriesData, error: subcategoriesError } = await nuclearClient
-        .from('bodegon_subcategories')
-        .select('id, name')
-        .eq('parent_category', categoryId)
-        .order('name')
-
-      if (subcategoriesError) {
-        toast.error('Error al cargar subcategorías: ' + subcategoriesError.message)
-        return
-      }
-
-      // Operación completada exitosamente
-      if (subcategoriesData) {
-        setSubcategories(subcategoriesData)
+      // Operation completed successfully
+      if (result.data) {
+        setSubcategories(result.data as Subcategory[])
       }
 
     } catch (error) {
@@ -248,57 +191,24 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
     loadCategories()
   }, [])
 
-  // Load product bodegones when editing - Nuclear Solution
+  // Load product bodegones when editing - Nuclear Client V2.0
   const loadProductBodegones = async (productId: string) => {
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        console.error('Error de autenticación:', error)
-        return
-      }
-      
-      if (!accessToken) {
-        console.error('Token no válido')
+      const result = await executeNuclearQuery(async (client) => {
+        return await client
+          .from('bodegon_inventories')
+          .select('bodegon_id')
+          .eq('product_id', productId)
+      }, false) // Don't show user error automatically
+
+      if (result.error) {
+        console.error('Error loading product bodegones:', result.error)
         return
       }
 
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
-
-      // Ejecutar operación directa
-      const { data: inventoryData, error } = await nuclearClient
-        .from('bodegon_inventories')
-        .select('bodegon_id')
-        .eq('product_id', productId)
-
-      if (error) {
-        console.error('Error loading product bodegones:', error)
-        return
-      }
-
-      // Operación completada exitosamente
-      if (inventoryData) {
-        const bodegonIds = inventoryData.map(item => item.bodegon_id)
+      // Operation completed successfully
+      if (result.data) {
+        const bodegonIds = (result.data as any[]).map((item: any) => item.bodegon_id)
         console.log('Loaded bodegones for product:', productId, bodegonIds)
         setSelectedBodegones(bodegonIds)
       }
@@ -417,6 +327,11 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
       return
     }
 
+    if (!formData.category_id) {
+      toast.error('Debe seleccionar una categoría')
+      return
+    }
+
     if (selectedBodegones.length === 0) {
       toast.error('Debe seleccionar al menos un bodegón')
       return
@@ -430,41 +345,6 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
     setIsSubmitting(true)
 
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        setIsSubmitting(false)
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
-        setIsSubmitting(false)
-        return
-      }
-
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
 
       // Upload new images first if any
       let newImageUrls: string[] = []
@@ -489,9 +369,9 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
-        image_gallery_urls: allImageUrls.length > 0 ? allImageUrls : null,
+        image_gallery_urls: allImageUrls.length > 0 ? allImageUrls : [], // Array vacío en lugar de null
         bar_code: formData.bar_code.trim() || null,
-        sku: formData.sku.trim() || null,
+        sku: formData.sku.trim(), // Remover || null ya que SKU es requerido
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
         price: parseFloat(formData.price),
@@ -502,66 +382,119 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         ...(productToEdit ? { modified_date: new Date().toISOString() } : { created_by: user.auth_user.id })
       }
 
+      console.log('🔍 Product data to insert/update:', productData)
+      console.log('🔍 User ID:', user.auth_user.id)
+      console.log('🔍 Is editing:', !!productToEdit)
+
       let productResult: Record<string, unknown> | null = null
 
       if (productToEdit) {
-        // Update existing product
-        const { data: updateResult, error: productError } = await nuclearClient
-          .from('bodegon_products')
-          .update(productData)
-          .eq('id', productToEdit.id)
-          .select()
-          .single()
+        // Update existing product using Nuclear Client V2.0
+        console.log('🔄 Attempting to update product with ID:', productToEdit.id)
+        const updateResult = await nuclearUpdate('bodegon_products', productToEdit.id, productData, '*')
+        console.log('📊 Update result:', updateResult)
         
-        if (productError) {
-          if (productError.message.includes('duplicate key value violates unique constraint "products_sku_key"')) {
+        if (updateResult.error) {
+          if (updateResult.error.includes('duplicate key value violates unique constraint "products_sku_key"')) {
             toast.error('Este SKU ya está en uso por otro producto. Por favor, ingresa un SKU diferente.')
             setIsSubmitting(false)
             return
           }
-          toast.error('Error al actualizar el producto: ' + productError.message)
+          if (updateResult.error.includes('null value in column "name"')) {
+            toast.error('El nombre del producto es obligatorio.')
+            setIsSubmitting(false)
+            return
+          }
+          if (updateResult.error.includes('null value in column "price"')) {
+            toast.error('El precio del producto es obligatorio.')
+            setIsSubmitting(false)
+            return
+          }
+          if (updateResult.error.includes('violates foreign key constraint')) {
+            toast.error('Error de referencia: Verifique que la categoría y subcategoría sean válidas.')
+            setIsSubmitting(false)
+            return
+          }
+          toast.error('Error al actualizar el producto: ' + updateResult.error)
           setIsSubmitting(false)
           return
         }
         
-        productResult = updateResult
-      } else {
-        // Insert new product
-        const { data: insertResult, error: productError } = await nuclearClient
-          .from('bodegon_products')
-          .insert(productData)
-          .select()
-          .single()
+        // Handle the update result data properly
+        if (Array.isArray(updateResult.data) && updateResult.data.length > 0) {
+          productResult = updateResult.data[0] as Record<string, unknown>
+        } else if (updateResult.data) {
+          productResult = updateResult.data as Record<string, unknown>
+        } else {
+          // If no data returned, use the original product with updated fields
+          productResult = { ...productToEdit, ...productData }
+        }
         
-        if (productError) {
-          if (productError.message.includes('duplicate key value violates unique constraint "products_sku_key"')) {
+        console.log('✅ Final productResult after update:', productResult)
+        console.log('✅ Final productResult ID after update:', productResult?.id)
+      } else {
+        // Insert new product using Nuclear Client V2.0
+        console.log('🚀 Attempting to insert new product...')
+        console.log('📋 Product data to insert:', productData)
+        const insertResult = await nuclearInsert('bodegon_products', productData, '*')
+        console.log('📊 Insert result:', insertResult)
+        console.log('📊 Insert result data:', insertResult.data)
+        console.log('📊 Insert result data type:', typeof insertResult.data)
+        
+        if (insertResult.error) {
+          if (insertResult.error.includes('duplicate key value violates unique constraint "products_sku_key"')) {
             toast.error('Este SKU ya está en uso por otro producto. Por favor, ingresa un SKU diferente.')
             setIsSubmitting(false)
             return
           }
-          if (productError.message.includes('null value in column "sku"')) {
+          if (insertResult.error.includes('null value in column "sku"')) {
             toast.error('El SKU es obligatorio. Por favor, ingresa un SKU para el producto.')
             setIsSubmitting(false)
             return
           }
-          toast.error('Error al crear el producto: ' + productError.message)
+          if (insertResult.error.includes('null value in column "name"')) {
+            toast.error('El nombre del producto es obligatorio.')
+            setIsSubmitting(false)
+            return
+          }
+          if (insertResult.error.includes('null value in column "price"')) {
+            toast.error('El precio del producto es obligatorio.')
+            setIsSubmitting(false)
+            return
+          }
+          if (insertResult.error.includes('violates foreign key constraint')) {
+            toast.error('Error de referencia: Verifique que la categoría y subcategoría sean válidas.')
+            setIsSubmitting(false)
+            return
+          }
+          toast.error('Error al crear el producto: ' + insertResult.error)
           setIsSubmitting(false)
           return
         }
         
-        productResult = insertResult
+        // Handle the result data properly
+        if (Array.isArray(insertResult.data) && insertResult.data.length > 0) {
+          productResult = insertResult.data[0] as Record<string, unknown>
+        } else {
+          productResult = insertResult.data as Record<string, unknown>
+        }
+        
+        console.log('✅ Final productResult:', productResult)
+        console.log('✅ Final productResult ID:', productResult?.id)
       }
 
       // Handle inventory entries for selected bodegones
       if (productToEdit) {
-        // For editing, first delete existing inventory entries
-        const { error: deleteInventoryError } = await nuclearClient
-          .from('bodegon_inventories')
-          .delete()
-          .eq('product_id', productToEdit.id)
+        // For editing, first delete existing inventory entries using Nuclear Client V2.0
+        const deleteResult = await executeNuclearQuery(async (client) => {
+          return await client
+            .from('bodegon_inventories')
+            .delete()
+            .eq('product_id', productToEdit.id)
+        }, false)
         
-        if (deleteInventoryError) {
-          toast.error('Error al eliminar inventarios existentes: ' + deleteInventoryError.message)
+        if (deleteResult.error) {
+          toast.error('Error al eliminar inventarios existentes: ' + deleteResult.error)
           setIsSubmitting(false)
           return
         }
@@ -569,7 +502,18 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
 
       // Create new inventory entries for selected bodegones
       if (!productResult) {
+        console.error('❌ Product result is null or undefined')
         toast.error('Error: No se pudo obtener el resultado del producto')
+        setIsSubmitting(false)
+        return
+      }
+
+      console.log('🔍 Product result for inventory:', productResult)
+      console.log('🔍 Product ID:', productResult.id)
+
+      if (!productResult.id) {
+        console.error('❌ Product ID is null or undefined:', productResult)
+        toast.error('Error: No se pudo obtener el ID del producto creado')
         setIsSubmitting(false)
         return
       }
@@ -582,12 +526,16 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         modified_date: new Date().toISOString()
       }))
 
-      const { error: inventoryError } = await nuclearClient
-        .from('bodegon_inventories')
-        .insert(inventoryEntries)
+      console.log('🔍 Inventory entries to create:', inventoryEntries)
 
-      if (inventoryError) {
-        toast.error('Error al crear inventarios: ' + inventoryError.message)
+      const inventoryResult = await executeNuclearQuery(async (client) => {
+        return await client
+          .from('bodegon_inventories')
+          .insert(inventoryEntries)
+      }, false)
+
+      if (inventoryResult.error) {
+        toast.error('Error al crear inventarios: ' + inventoryResult.error)
         setIsSubmitting(false)
         return
       }
@@ -630,61 +578,24 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
 
     setIsCreatingCategory(true)
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
+      const result = await nuclearInsert('bodegon_categories', {
+        name: newCategoryName.trim(),
+        is_active: true,
+        created_by: user.auth_user.id
+      }, '*')
+
+      if (result.error) {
+        toast.error('Error al crear la categoría: ' + result.error)
         return
       }
 
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
-
-      // Ejecutar operación directa
-      const { data, error } = await nuclearClient
-        .from('bodegon_categories')
-        .insert({
-          name: newCategoryName.trim(),
-          is_active: true,
-          created_by: user.auth_user.id
-        })
-        .select()
-        .single()
-
-      if (error) {
-        toast.error('Error al crear la categoría: ' + error.message)
-        return
+      // Operation completed successfully
+      if (result.data) {
+        setCategories(prev => [...prev, result.data as Category])
+        setNewCategoryName('')
+        setCategoryPopoverOpen(false)
+        toast.success('Categoría creada exitosamente')
       }
-
-      // Operación completada exitosamente
-      setCategories(prev => [...prev, data])
-      setNewCategoryName('')
-      setCategoryPopoverOpen(false)
-      toast.success('Categoría creada exitosamente')
 
     } catch (error) {
       console.error('Error creating category:', error)
@@ -699,62 +610,25 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
 
     setIsCreatingSubcategory(true)
     try {
-      // ✅ SOLUCIÓN NUCLEAR - Patrón del CLAUDE.md
-      let accessToken: string | null = null
-      try {
-        const supabaseSession = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
-        if (supabaseSession) {
-          const parsedSession = JSON.parse(supabaseSession)
-          accessToken = parsedSession?.access_token
-        }
-      } catch (error) {
-        toast.error('Error de autenticación')
-        return
-      }
-      
-      if (!accessToken) {
-        toast.error('Token no válido, recarga la página')
+      const result = await nuclearInsert('bodegon_subcategories', {
+        name: newSubcategoryName.trim(),
+        parent_category: formData.category_id,
+        is_active: true,
+        created_by: user.auth_user.id
+      }, '*')
+
+      if (result.error) {
+        toast.error('Error al crear la subcategoría: ' + result.error)
         return
       }
 
-      // Crear cliente fresco
-      const { createClient } = await import('@supabase/supabase-js')
-      const nuclearClient = createClient(
-        'https://zykwuzuukrmgztpgnbth.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
-        {
-          auth: { persistSession: false },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        }
-      )
-
-      // Ejecutar operación directa
-      const { data, error } = await nuclearClient
-        .from('bodegon_subcategories')
-        .insert({
-          name: newSubcategoryName.trim(),
-          parent_category: formData.category_id,
-          is_active: true,
-          created_by: user.auth_user.id
-        })
-        .select()
-        .single()
-
-      if (error) {
-        toast.error('Error al crear la subcategoría: ' + error.message)
-        return
+      // Operation completed successfully
+      if (result.data) {
+        setSubcategories(prev => [...prev, result.data as Category])
+        setNewSubcategoryName('')
+        setSubcategoryPopoverOpen(false)
+        toast.success('Subcategoría creada exitosamente')
       }
-
-      // Operación completada exitosamente
-      setSubcategories(prev => [...prev, data])
-      setNewSubcategoryName('')
-      setSubcategoryPopoverOpen(false)
-      toast.success('Subcategoría creada exitosamente')
 
     } catch (error) {
       console.error('Error creating subcategory:', error)

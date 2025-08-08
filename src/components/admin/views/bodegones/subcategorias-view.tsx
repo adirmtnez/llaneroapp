@@ -96,7 +96,11 @@ export function BodegonesSubcatView() {
       }
 
       if (categoriesData) {
+        console.log('✅ Categorías padre cargadas:', categoriesData)
         setParentCategories(categoriesData)
+      } else {
+        console.warn('⚠️ No se encontraron categorías padre activas')
+        setParentCategories([])
       }
     } catch (error) {
       console.error('Error loading parent categories:', error)
@@ -340,6 +344,13 @@ export function BodegonesSubcatView() {
       return
     }
 
+    // Verificar que la categoría padre existe en la lista de categorías disponibles
+    const selectedCategory = parentCategories.find(cat => cat.id === formData.parent_category)
+    if (!selectedCategory) {
+      toast.error('La categoría padre seleccionada no es válida')
+      return
+    }
+
     if (!user?.auth_user.id) {
       toast.error('Usuario no autenticado')
       return
@@ -368,6 +379,9 @@ export function BodegonesSubcatView() {
         created_date: new Date().toISOString(),
         modified_date: new Date().toISOString()
       }
+
+      console.log('🔍 Datos a insertar:', subcategoryData)
+      console.log('🔍 Parent categories disponibles:', parentCategories)
 
       const result = await nuclearInsert('bodegon_subcategories', subcategoryData, '*')
 
@@ -1019,11 +1033,17 @@ export function BodegonesSubcatView() {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {parentCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    {parentCategories.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No hay categorías disponibles
                       </SelectItem>
-                    ))}
+                    ) : (
+                      parentCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1160,11 +1180,17 @@ export function BodegonesSubcatView() {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {parentCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    {parentCategories.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No hay categorías disponibles
                       </SelectItem>
-                    ))}
+                    ) : (
+                      parentCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1304,11 +1330,17 @@ export function BodegonesSubcatView() {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {parentCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    {parentCategories.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No hay categorías disponibles
                       </SelectItem>
-                    ))}
+                    ) : (
+                      parentCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1445,11 +1477,17 @@ export function BodegonesSubcatView() {
                     <SelectValue placeholder="Selecciona una categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {parentCategories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
+                    {parentCategories.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No hay categorías disponibles
                       </SelectItem>
-                    ))}
+                    ) : (
+                      parentCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
