@@ -150,17 +150,19 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Handle page visibility changes
-  // ❌ TEMPORALMENTE DESACTIVADO - Page visibility validation
-  // CAUSA: Este handler está disparando múltiples recargas de datos
+  // ✅ REACTIVADO - Page visibility validation con lógica inteligente
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      // ⚠️ DESACTIVADO TEMPORALMENTE PARA TESTING
-      console.log('SupabaseProvider: Page visibility changed, but handler is disabled for testing')
-      return
-      
       if (!document.hidden && user && !isRefreshing) {
-        console.log('SupabaseProvider: Page became visible, validating session...')
-        await validateSession()
+        console.log('📡 SupabaseProvider: Page became visible, validating session...')
+        
+        // 🎯 LÓGICA COORDINADA: Solo validar si AuthProvider no está manejando
+        // Verificar si hay sesión válida en localStorage como señal de que AuthProvider funciona
+        const localToken = localStorage.getItem('sb-zykwuzuukrmgztpgnbth-auth-token')
+        if (localToken && sessionState === 'invalid') {
+          console.log('🔄 SupabaseProvider: Revalidating session after tab switch...')
+          await validateSession()
+        }
       }
     }
 
