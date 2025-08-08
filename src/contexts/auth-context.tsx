@@ -137,11 +137,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (credentials: AuthCredentials): Promise<{ error: Error | null }> => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
       })
-      return { error }
+      
+      if (error) {
+        return { error }
+      }
+      
+      // ✅ FORZAR carga del perfil después del login exitoso
+      // Esto es necesario porque los listeners están deshabilitados
+      if (data.user) {
+        await loadUserProfile(data.user)
+      }
+      
+      return { error: null }
     } catch (error) {
       return { error: error as Error }
     }
@@ -246,20 +257,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error('Error signing out:', error)
-      throw error
+    try {
+      // Intentar logout normal de Supabase
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Error signing out from Supabase:', error)
+        // NO hacer throw - continuar con limpieza local
+      }
+    } catch (error) {
+      console.error('Unexpected error during signOut:', error)
+      // Continuar con limpieza local aún si Supabase falla
     }
     
-    // Clear saved admin view when signing out
+    // SIEMPRE limpiar estado local, independientemente de errores de Supabase
     try {
       localStorage.removeItem('adminCurrentView')
+      localStorage.removeItem('sb-zykwuzuukrmgztpgnbth-auth-token') // ✅ Limpiar token nuclear
     } catch (error) {
-      console.error('Error clearing saved view:', error)
+      console.error('Error clearing localStorage:', error)
     }
     
+    // Limpiar estado del contexto
     setUser(null)
+    setLoading(false)
   }
 
   const updateProfile = async (updates: UserProfileUpdate): Promise<{ error: Error | null }> => {

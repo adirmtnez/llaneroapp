@@ -49,8 +49,8 @@ export function LoginForm({
       }
 
       console.log('Login successful, redirecting to admin')
-      // Use Next.js router for cleaner navigation
-      router.push('/admin')
+      // Usar redirección forzada para evitar problemas con listeners deshabilitados
+      window.location.href = '/admin'
 
     } catch (error) {
       console.error('Login error:', error)

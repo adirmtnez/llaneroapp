@@ -39,9 +39,12 @@ export function NavUser() {
   const handleLogout = async () => {
     try {
       await signOut()
-      router.push('/auth')
+      // Forzar redirección inmediata sin depender de listeners
+      window.location.href = '/auth'
     } catch (error) {
       console.error('Error during logout:', error)
+      // Aún si hay error, redirigir para evitar estado inconsistente  
+      window.location.href = '/auth'
     }
   }
 
