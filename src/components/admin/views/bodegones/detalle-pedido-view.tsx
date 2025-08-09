@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { ArrowLeftIcon, CreditCard, Smartphone, Landmark, Globe, CheckCircle, Clock, Package, Truck, Home, MapPin, Printer, Edit, User, X } from "lucide-react"
+import { ArrowLeftIcon, CreditCard, Smartphone, Landmark, Globe, CheckCircle, Clock, Package, Truck, Home, MapPin, Printer, Edit, User, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -83,9 +83,9 @@ const mockPedido: DetallePedido = {
   repartidor_id: '2',
   tipoEntrega: 'domicilio',
   direccionEntrega: '123 Main St, Anytown, AN 12345',
-  subtotal: 101.97,
+  subtotal: 276.88,
   envio: 10.00,
-  total: 111.97,
+  total: 286.88,
   productos: [
     {
       id: '1',
@@ -100,6 +100,41 @@ const mockPedido: DetallePedido = {
       cantidad: 1,
       precio: 49.99,
       total: 49.99
+    },
+    {
+      id: '3',
+      nombre: 'Smartphone Case',
+      cantidad: 3,
+      precio: 15.99,
+      total: 47.97
+    },
+    {
+      id: '4',
+      nombre: 'USB-C Cable',
+      cantidad: 2,
+      precio: 12.50,
+      total: 25.00
+    },
+    {
+      id: '5',
+      nombre: 'Wireless Charger',
+      cantidad: 1,
+      precio: 35.99,
+      total: 35.99
+    },
+    {
+      id: '6',
+      nombre: 'Power Bank',
+      cantidad: 1,
+      precio: 29.99,
+      total: 29.99
+    },
+    {
+      id: '7',
+      nombre: 'Screen Protector',
+      cantidad: 4,
+      precio: 8.99,
+      total: 35.96
     }
   ],
   bodegon: 'Bodegón Central'
@@ -157,6 +192,11 @@ export function DetallePedidoView({
   const [editRepartidor, setEditRepartidor] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   
+  // Estados para el indicador de scroll
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  
   // Usar mock data si no se proporciona pedido o si pedido es null
   const pedidoData = pedido || mockPedido
   
@@ -184,19 +224,32 @@ export function DetallePedidoView({
     }
   }
 
-  // Hook para detectar si estamos en mobile
-  const [isMobile, setIsMobile] = useState(false)
-  
+  // Hook para detectar si estamos en mobile y si hay scroll
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
     }
     
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
+    const checkScrollable = () => {
+      if (scrollContainerRef.current) {
+        const { scrollHeight, clientHeight } = scrollContainerRef.current
+        setShowScrollIndicator(scrollHeight > clientHeight && isMobile)
+      }
+    }
     
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+    checkMobile()
+    checkScrollable()
+    
+    window.addEventListener('resize', () => {
+      checkMobile()
+      checkScrollable()
+    })
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+      window.removeEventListener('resize', checkScrollable)
+    }
+  }, [isMobile, pedidoData.productos.length])
 
   const handleSaveEdit = async () => {
     if (!editEstado) {
@@ -413,36 +466,53 @@ export function DetallePedidoView({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Header de la tabla */}
-                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground border-b pb-2">
+                {/* Header de la tabla - fijo */}
+                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground border-b pb-2 sticky top-0 bg-white z-10">
                   <div className="col-span-5">Producto</div>
-                  <div className="col-span-2 text-center">Cantidad</div>
-                  <div className="col-span-2 text-right">Precio</div>
-                  <div className="col-span-3 text-right">Total</div>
+                  <div className="col-span-2">Cantidad</div>
+                  <div className="col-span-2">Precio</div>
+                  <div className="col-span-3">Total</div>
                 </div>
                 
-                {/* Productos */}
-                {pedidoData.productos.map((producto) => (
-                  <div key={producto.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 last:border-0">
-                    <div className="col-span-5 flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gray-100 rounded border flex items-center justify-center">
-                        <Package className="w-6 h-6 text-gray-400" />
+                {/* Contenedor scrolleable para productos */}
+                <div className="relative">
+                  <div 
+                    ref={scrollContainerRef}
+                    className="max-h-80 overflow-y-auto"
+                  >
+                    {/* Productos */}
+                    {pedidoData.productos.map((producto) => (
+                      <div key={producto.id} className="grid grid-cols-12 gap-4 items-center py-3 border-b border-gray-100 last:border-0">
+                        <div className="col-span-5 flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gray-100 rounded border flex items-center justify-center">
+                            <Package className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{producto.nombre}</p>
+                          </div>
+                        </div>
+                        <div className="col-span-2 text-sm">
+                          {producto.cantidad}
+                        </div>
+                        <div className="col-span-2 text-sm">
+                          ${producto.precio.toFixed(2)}
+                        </div>
+                        <div className="col-span-3 font-medium text-sm">
+                          ${producto.total.toFixed(2)}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{producto.nombre}</p>
-                      </div>
-                    </div>
-                    <div className="col-span-2 text-center text-sm">
-                      {producto.cantidad}
-                    </div>
-                    <div className="col-span-2 text-right text-sm">
-                      ${producto.precio.toFixed(2)}
-                    </div>
-                    <div className="col-span-3 text-right font-medium text-sm">
-                      ${producto.total.toFixed(2)}
-                    </div>
+                    ))}
                   </div>
-                ))}
+                  
+                  {/* Indicador de scroll para móviles */}
+                  {showScrollIndicator && (
+                    <div className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-sm border">
+                        <ChevronDown className="w-4 h-4 text-gray-500 animate-bounce" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

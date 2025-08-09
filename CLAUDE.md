@@ -435,9 +435,31 @@ Para mantener consistencia visual y evitar repetir código, se implementó un **
 - **DRY**: No repetir `max-w-[1200px]` en cada vista
 
 ### 📝 Para Desarrolladores:
-- ❌ **NO agregar** `max-w-[1200px]` en nuevas vistas
+
+#### **Vistas Principales/Listados** (1200px automático):
+- ❌ **NO agregar** `max-w-[1200px]` en nuevas vistas principales
 - ✅ **Solo usar** contenedores base como `<div className="space-y-6">`
-- ✅ El max-width se aplica automáticamente a todas las vistas
+- ✅ El max-width se aplica automáticamente (pedidos, productos, categorías, etc.)
+
+#### **Vistas Internas/Formularios** (896px manual):
+- ✅ **Usar** `max-w-4xl mx-auto` en vistas internas/formularios
+- ✅ **Incluir** header con ArrowLeftIcon para consistencia
+- ✅ **Ejemplos**: Agregar/Editar productos, Detalles de pedido, Formularios
+
+### 🔙 **Header Estándar para Vistas Internas:**
+```tsx
+{/* Header */}
+<div className="flex items-center gap-4">
+  <Button variant="ghost" size="sm" onClick={handleBack} className="h-10 md:h-8">
+    <ArrowLeftIcon className="w-4 h-4" />
+  </Button>
+  <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+    {título_dinámico}
+  </h1>
+</div>
+```
+
+**Usar en todas las vistas internas/secundarias para mantener consistencia UX.**
 
 ## Notas Importantes
 
