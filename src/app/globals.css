@@ -217,3 +217,23 @@
     cursor: wait !important;
   }
 }
+
+/* Hide scrollbars */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Global scrollbar hiding for overflow-x-auto elements */
+.overflow-x-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}

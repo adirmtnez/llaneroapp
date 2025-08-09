@@ -1,194 +1,216 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, MapPin, Star, Clock, Truck } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronDown, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 
-// Mock data para categorías
-const categories = [
-  { id: 1, name: 'Comida Rápida', icon: '🍔', color: 'bg-red-100 text-red-600' },
-  { id: 2, name: 'Bebidas', icon: '🥤', color: 'bg-blue-100 text-blue-600' },
-  { id: 3, name: 'Snacks', icon: '🍿', color: 'bg-yellow-100 text-yellow-600' },
-  { id: 4, name: 'Dulces', icon: '🍭', color: 'bg-pink-100 text-pink-600' },
-  { id: 5, name: 'Frutas', icon: '🍎', color: 'bg-green-100 text-green-600' },
-  { id: 6, name: 'Panadería', icon: '🥖', color: 'bg-orange-100 text-orange-600' }
-]
-
-// Mock data para bodegones destacados
-const featuredBodegones = [
+// Mock data para ofertas del slider
+const offers = [
   {
     id: 1,
-    name: 'Bodegón Central',
-    image: '/api/placeholder/300/200',
-    rating: 4.8,
-    deliveryTime: '20-30 min',
-    deliveryFee: 'Gratis',
-    categories: ['Comida Rápida', 'Bebidas'],
-    distance: '0.8 km',
-    isOpen: true
+    title: '¡Oferta Especial!',
+    subtitle: '50% de descuento en todos los rones',
+    background: 'bg-gradient-to-r from-red-500 to-pink-500'
   },
   {
     id: 2,
-    name: 'La Esquina Sabrosa',
-    image: '/api/placeholder/300/200',
-    rating: 4.6,
-    deliveryTime: '25-35 min',
-    deliveryFee: 'Bs. 2.00',
-    categories: ['Snacks', 'Dulces'],
-    distance: '1.2 km',
-    isOpen: true
+    title: '¡Envío Gratis!',
+    subtitle: 'En pedidos mayores a Bs. 50',
+    background: 'bg-gradient-to-r from-blue-500 to-purple-500'
   },
   {
     id: 3,
-    name: 'Bodegón Express',
-    image: '/api/placeholder/300/200',
-    rating: 4.9,
-    deliveryTime: '15-25 min',
-    deliveryFee: 'Gratis',
-    categories: ['Bebidas', 'Frutas'],
-    distance: '0.5 km',
-    isOpen: false
+    title: '¡2x1 en Bebidas!',
+    subtitle: 'Válido hasta agotar existencias',
+    background: 'bg-gradient-to-r from-green-500 to-teal-500'
   }
 ]
 
-// Mock data para acciones rápidas
-const quickActions = [
-  { id: 1, title: 'Pedido Rápido', subtitle: 'Repite tu último pedido', icon: '⚡', color: 'bg-purple-100 text-purple-600' },
-  { id: 2, title: 'Ofertas del Día', subtitle: 'Descuentos especiales', icon: '🎯', color: 'bg-red-100 text-red-600' },
-  { id: 3, title: 'Cerca de Ti', subtitle: 'Bodegones cercanos', icon: '📍', color: 'bg-green-100 text-green-600' },
-  { id: 4, title: 'Favoritos', subtitle: 'Tus lugares preferidos', icon: '❤️', color: 'bg-pink-100 text-pink-600' }
+// Mock data para categorías
+const categories = [
+  {
+    id: 1,
+    name: 'LICORES',
+    image: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=300&fit=crop&crop=center',
+    color: 'from-amber-600 to-amber-800'
+  },
+  {
+    id: 2,
+    name: 'MERCADO',
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop&crop=center',
+    color: 'from-green-600 to-green-800'
+  },
+  {
+    id: 3,
+    name: 'BEBIDAS',
+    image: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=300&fit=crop&crop=center',
+    color: 'from-blue-600 to-blue-800'
+  },
+  {
+    id: 4,
+    name: 'SNACKS',
+    image: 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=400&h=300&fit=crop&crop=center',
+    color: 'from-orange-600 to-orange-800'
+  }
 ]
 
+// Mock data para restaurantes
+const restaurants = [
+  {
+    id: 1,
+    name: 'Boulevard Rose',
+    logo: '🌹'
+  },
+  {
+    id: 2,
+    name: 'La Nave',
+    logo: '🚢'
+  },
+  {
+    id: 3,
+    name: 'Orinoco Grill',
+    logo: '🔥'
+  },
+  {
+    id: 4,
+    name: 'Café Central',
+    logo: '☕'
+  },
+  {
+    id: 5,
+    name: 'Pizza House',
+    logo: '🍕'
+  },
+  {
+    id: 6,
+    name: 'Burger King',
+    logo: '🍔'
+  }
+]
 export function InicioView() {
-  const [searchQuery, setSearchQuery] = useState('')
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [cartItems, setCartItems] = useState(2) // Mock cart items count
+  const [selectedBodegon, setSelectedBodegon] = useState('Todos los bodegones')
+
+  // Auto-slide para el carrusel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % offers.length)
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [])
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Saludo personalizado */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">¡Hola! 👋</h2>
-        <p className="text-gray-600">¿Qué te apetece hoy?</p>
-      </div>
-
-      {/* Barra de búsqueda */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-        <Input
-          type="text"
-          placeholder="Buscar bodegones, productos..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 pr-4 py-3 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Categorías rápidas */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-900">Categorías</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {categories.map((category) => (
-            <Button
-              key={category.id}
-              variant="ghost"
-              className="h-auto p-3 flex flex-col items-center space-y-2 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50"
-            >
-              <div className={`w-12 h-12 rounded-full ${category.color} flex items-center justify-center text-2xl`}>
-                {category.icon}
-              </div>
-              <span className="text-xs font-medium text-gray-700 text-center leading-tight">
-                {category.name}
-              </span>
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Acciones rápidas */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-900">Acceso Rápido</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {quickActions.map((action) => (
-            <Card key={action.id} className="border-gray-200 hover:border-blue-300 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-10 h-10 rounded-lg ${action.color} flex items-center justify-center text-lg`}>
-                    {action.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 text-sm">{action.title}</h4>
-                    <p className="text-xs text-gray-500">{action.subtitle}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Bodegones destacados */}
-      <div className="space-y-3">
+    <div className="flex flex-col min-h-screen bg-gray-50 relative">
+      {/* Header simplificado */}
+      <div className="px-4 py-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Bodegones Destacados</h3>
-          <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-            Ver todos
-          </Button>
+          {/* Logo */}
+          <div className="flex items-center">
+            <img 
+              src="https://zykwuzuukrmgztpgnbth.supabase.co/storage/v1/object/public/adminapp/Llanero%20Logo.png" 
+              alt="Llanero" 
+              className="w-[120px] h-auto"
+            />
+          </div>
+          
+          {/* Map pin icon */}
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Slider de ofertas */}
+      <div className="relative mx-4 mt-4">
+        <div className="overflow-hidden rounded-[30px] h-[150px]">
+          <div 
+            className="flex transition-transform duration-500 ease-in-out h-full"
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {offers.map((offer) => (
+              <div key={offer.id} className="w-full flex-shrink-0 h-full">
+                <div className={`${offer.background} text-white p-6 rounded-[30px] h-full flex flex-col justify-center`}>
+                  <h3 className="text-xl font-bold mb-2">{offer.title}</h3>
+                  <p className="text-white/90">{offer.subtitle}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         
-        <div className="space-y-4">
-          {featuredBodegones.map((bodegon) => (
-            <Card key={bodegon.id} className="border-gray-200 hover:border-blue-300 transition-colors cursor-pointer">
-              <CardContent className="p-4">
-                <div className="flex space-x-4">
-                  <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-2xl">🏪</span>
-                  </div>
-                  
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-gray-900">{bodegon.name}</h4>
-                      <Badge variant={bodegon.isOpen ? 'default' : 'secondary'} className="text-xs">
-                        {bodegon.isOpen ? 'Abierto' : 'Cerrado'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span>{bodegon.rating}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{bodegon.deliveryTime}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Truck className="h-4 w-4" />
-                        <span>{bodegon.deliveryFee}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1 text-sm text-gray-500">
-                        <MapPin className="h-4 w-4" />
-                        <span>{bodegon.distance}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {bodegon.categories.slice(0, 2).map((category, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {category}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Indicadores del slider */}
+        <div className="flex justify-center mt-3 space-x-2">
+          {offers.map((_, index) => (
+            <button
+              key={index}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === currentSlide ? 'bg-red-500' : 'bg-gray-300'
+              }`}
+              onClick={() => setCurrentSlide(index)}
+            />
           ))}
         </div>
       </div>
+
+      {/* Sección de categorías */}
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold text-gray-900 px-4 mb-3">Categorías</h2>
+        <div className="flex space-x-4 px-4 overflow-x-auto">
+          {categories.map((category) => (
+            <div key={category.id} className="flex-shrink-0 w-[200px]">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden p-0 rounded-[30px]">
+                <div className="relative h-[100px]">
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className={`absolute inset-0 bg-gradient-to-t ${category.color} opacity-80`} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-white font-bold text-sm text-center">
+                      {category.name}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sección de restaurantes */}
+      <div className="mt-6 pb-24">
+        <h2 className="text-lg font-semibold text-gray-900 px-4 mb-3">Restaurantes</h2>
+        <div className="flex space-x-4 px-4 overflow-x-auto">
+          {restaurants.map((restaurant) => (
+            <div key={restaurant.id} className="flex-shrink-0 text-center">
+              <div className="w-20 h-20 bg-white rounded-full shadow-md flex items-center justify-center mx-auto mb-2 cursor-pointer hover:shadow-lg transition-shadow">
+                <span className="text-3xl">{restaurant.logo}</span>
+              </div>
+              <span className="text-xs text-gray-700 font-medium max-w-[80px] block">{restaurant.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Píldora flotante del carrito */}
+      {cartItems > 0 && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50">
+          <Button 
+            className="bg-black hover:bg-gray-800 text-white rounded-full px-6 py-3 shadow-lg flex items-center space-x-2"
+            onClick={() => {/* TODO: Abrir carrito */}}
+          >
+            <ShoppingCart className="h-5 w-5" />
+            <span className="font-medium">{cartItems} productos</span>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
