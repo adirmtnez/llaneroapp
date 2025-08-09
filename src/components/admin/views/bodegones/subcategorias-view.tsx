@@ -96,10 +96,8 @@ export function BodegonesSubcatView() {
       }
 
       if (categoriesData) {
-        console.log('✅ Categorías padre cargadas:', categoriesData)
         setParentCategories(categoriesData)
       } else {
-        console.warn('⚠️ No se encontraron categorías padre activas')
         setParentCategories([])
       }
     } catch (error) {
@@ -386,34 +384,7 @@ export function BodegonesSubcatView() {
         modified_date: new Date().toISOString()
       }
 
-      console.log('🔍 Datos a insertar:', subcategoryData)
-      console.log('🔍 Parent categories disponibles:', parentCategories)
-      console.log('🔍 Categoría padre seleccionada:', selectedCategory)
-
-      // Primero verificar si la tabla existe
-      try {
-        const { createNuclearClient } = await import('@/utils/nuclear-client')
-        const testClient = await createNuclearClient()
-        
-        if (testClient) {
-          console.log('🔍 Probando consulta simple a la tabla...')
-          const { data: testData, error: testError } = await testClient
-            .from('bodegon_subcategories')
-            .select('id')
-            .limit(1)
-          
-          console.log('🔍 Test query result:', { testData, testError })
-          
-          if (testError) {
-            console.error('🚫 La tabla bodegon_subcategories parece tener un problema:', testError)
-          }
-        }
-      } catch (testError) {
-        console.error('🚫 Error en test query:', testError)
-      }
-
       const result = await nuclearInsert('bodegon_subcategories', subcategoryData, '*')
-      console.log('🔍 Resultado de inserción:', result)
 
       if (result.error) {
         toast.error('Error al crear la subcategoría: ' + result.error)
