@@ -388,8 +388,10 @@ export function BodegonesSubcatView() {
 
       console.log('🔍 Datos a insertar:', subcategoryData)
       console.log('🔍 Parent categories disponibles:', parentCategories)
+      console.log('🔍 Categoría padre seleccionada:', selectedCategory)
 
       const result = await nuclearInsert('bodegon_subcategories', subcategoryData, '*')
+      console.log('🔍 Resultado de inserción:', result)
 
       if (result.error) {
         toast.error('Error al crear la subcategoría: ' + result.error)

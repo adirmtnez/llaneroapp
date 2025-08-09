@@ -165,13 +165,17 @@ export const executeNuclearQuery = async <T>(
         }
         
         console.error('💥 Nuclear Query Error:', result.error)
-        if (result.error && typeof result.error === 'object') {
-          console.error('💥 Error Details:', {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-            hint: result.error.hint
-          })
+        try {
+          if (result.error && typeof result.error === 'object') {
+            console.error('💥 Error Details:', {
+              code: result.error.code,
+              message: result.error.message,
+              details: result.error.details,
+              hint: result.error.hint
+            })
+          }
+        } catch (logError) {
+          console.error('💥 Error logging details:', logError)
         }
         const finalError = customErrorMessage || errorMessage
         
