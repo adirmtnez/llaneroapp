@@ -5,6 +5,7 @@ import { ChevronDown, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ProductCard } from '../product-card'
+import { ProductDetailDrawer } from '../product-detail-drawer'
 import { nuclearSelect } from '@/utils/nuclear-client'
 import type { BodegonCategory } from '@/types/bodegons'
 
@@ -39,39 +40,7 @@ const defaultCategoryImages: Record<string, string> = {
   'default': 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop&crop=center'
 }
 
-// Los restaurantes ahora se cargan de la base de datos
-
-// Mock data para productos destacados
-const featuredProducts = [
-  {
-    id: 1,
-    name: 'Whisky Old 63',
-    description: '0.70L / 40G',
-    price: 11.5,
-    image: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&crop=center'
-  },
-  {
-    id: 2,
-    name: 'Old Label Premium',
-    description: '0.70L / 39G',
-    price: 6.99,
-    image: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&crop=center'
-  },
-  {
-    id: 3,
-    name: 'Ron Añejo Especial',
-    description: '0.75L / 40G',
-    price: 15.99,
-    image: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=400&fit=crop&crop=center'
-  },
-  {
-    id: 4,
-    name: 'Vodka Premium',
-    description: '0.70L / 37.5G',
-    price: 8.75,
-    image: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&h=400&fit=crop&crop=center'
-  }
-]
+// Los restaurantes y productos ahora se cargan de la base de datos
 export function InicioView() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [cartItems, setCartItems] = useState(2) // Mock cart items count
@@ -81,6 +50,10 @@ export function InicioView() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [restaurants, setRestaurants] = useState<any[]>([])
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
+  const [ronProducts, setRonProducts] = useState<any[]>([])
+  const [loadingRonProducts, setLoadingRonProducts] = useState(true)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [showProductDetail, setShowProductDetail] = useState(false)
 
   // Auto-slide para el carrusel
   useEffect(() => {
@@ -142,6 +115,48 @@ export function InicioView() {
     loadRestaurants()
   }, [])
 
+  // Cargar productos de Ron
+  useEffect(() => {
+    const loadRonProducts = async () => {
+      try {
+        // Primero buscar la subcategoría "Ron"
+        const { data: subcategories, error: subError } = await nuclearSelect(
+          'bodegon_subcategories',
+          '*',
+          { name: 'Ron', is_active: true }
+        )
+        
+        if (subError || !subcategories || subcategories.length === 0) {
+          console.error('Error o subcategoría Ron no encontrada:', subError)
+          setLoadingRonProducts(false)
+          return
+        }
+
+        const ronSubcategoryId = subcategories[0].id
+
+        // Buscar productos de la subcategoría Ron
+        const { data: products, error: prodError } = await nuclearSelect(
+          'bodegon_products',
+          '*, bodegon_subcategories(name)',
+          { subcategory_id: ronSubcategoryId, is_active: true }
+        )
+        
+        if (prodError) {
+          console.error('Error cargando productos de Ron:', prodError)
+          return
+        }
+        
+        setRonProducts(products || [])
+      } catch (error) {
+        console.error('Error cargando productos de Ron:', error)
+      } finally {
+        setLoadingRonProducts(false)
+      }
+    }
+
+    loadRonProducts()
+  }, [])
+
   // Manejar cambios de cantidad de productos
   const handleProductQuantityChange = (productId: string | number, quantity: number) => {
     setProductQuantities(prev => ({
@@ -179,6 +194,28 @@ export function InicioView() {
     
     // Fallback a una imagen por defecto
     return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&h=200&fit=crop&crop=center'
+  }
+
+  // Obtener imagen de producto
+  const getProductImage = (product: any) => {
+    // Primero intentar con la primera imagen del gallery
+    if (product.image_gallery_urls && Array.isArray(product.image_gallery_urls) && product.image_gallery_urls.length > 0) {
+      return product.image_gallery_urls[0]
+    }
+    
+    // Luego con image_url si existe
+    if (product.image_url) return product.image_url
+    
+    console.log('Producto sin imagen:', product.name, product)
+    
+    // Fallback para productos de ron
+    return 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=400&h=400&fit=crop&crop=center'
+  }
+
+  // Manejar click en producto
+  const handleProductClick = (product: any) => {
+    setSelectedProduct(product)
+    setShowProductDetail(true)
   }
 
   return (
@@ -301,31 +338,58 @@ export function InicioView() {
         )}
       </div>
 
-      {/* Sección de productos destacados */}
+      {/* Sección de Rones */}
       <div className="mt-6 pb-32">
         <div className="flex items-center justify-between px-4 mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">Productos Destacados</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Rones</h2>
           <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
             Ver todos
           </Button>
         </div>
         
-        <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-          {featuredProducts.map((product) => (
-            <div key={product.id} className="flex-shrink-0 w-[180px]">
-              <ProductCard
-                id={product.id}
-                name={product.name}
-                description={product.description}
-                price={product.price}
-                image={product.image}
-                initialQuantity={productQuantities[product.id] || 0}
-                onQuantityChange={handleProductQuantityChange}
-                currency="$"
-              />
+        {loadingRonProducts ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden">
+                  <div className="p-4 space-y-3">
+                    <div className="aspect-square bg-gray-200 rounded-2xl animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse" />
+                      <div className="h-5 bg-gray-200 rounded w-1/2 animate-pulse" />
+                    </div>
+                    <div className="h-10 bg-gray-200 rounded-full animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : ronProducts.length > 0 ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {ronProducts.map((product) => (
+              <div key={product.id} className="flex-shrink-0 w-[180px]">
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  description={product.description || `${product.size || ''} ${product.volume || ''}`.trim()}
+                  price={product.price || 0}
+                  image={getProductImage(product)}
+                  initialQuantity={productQuantities[product.id] || 0}
+                  onQuantityChange={handleProductQuantityChange}
+                  currency="$"
+                  onClick={() => handleProductClick(product)}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-4">
+            <div className="text-center py-8 text-gray-500">
+              <p>No hay productos de ron disponibles</p>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Píldora flotante del carrito */}
@@ -344,6 +408,17 @@ export function InicioView() {
           <span className="font-medium">{cartItems} productos</span>
         </Button>
       </div>
+
+      {/* Product Detail Drawer */}
+      <ProductDetailDrawer
+        open={showProductDetail}
+        onOpenChange={setShowProductDetail}
+        product={selectedProduct}
+        initialQuantity={selectedProduct ? (productQuantities[selectedProduct.id] || 0) : 0}
+        onQuantityChange={handleProductQuantityChange}
+        currency="$"
+        getProductImage={getProductImage}
+      />
     </div>
   )
 }

@@ -14,6 +14,7 @@ interface ProductCardProps {
   initialQuantity?: number
   onQuantityChange?: (id: string | number, quantity: number) => void
   currency?: string
+  onClick?: () => void
 }
 
 export function ProductCard({
@@ -24,7 +25,8 @@ export function ProductCard({
   image,
   initialQuantity = 0,
   onQuantityChange,
-  currency = '$'
+  currency = '$',
+  onClick
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(initialQuantity)
 
@@ -51,30 +53,33 @@ export function ProductCard({
   return (
     <Card className="overflow-hidden bg-white rounded-2xl shadow-none">
       <div className="p-4 space-y-3">
-        {/* Image */}
-        <div className="aspect-square bg-gray-100 rounded-2xl overflow-hidden">
-          <img
-            src={image}
-            alt={name}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        {/* Clickable area - Image and Product Info */}
+        <div onClick={onClick} className="cursor-pointer space-y-3">
+          {/* Image */}
+          <div className="aspect-square bg-gray-100 rounded-2xl overflow-hidden">
+            <img
+              src={image}
+              alt={name}
+              className="w-full h-full object-cover"
+            />
+          </div>
 
-        {/* Product Info */}
-        <div className="space-y-2">
-          <h3 className="font-medium text-gray-900 text-sm leading-tight line-clamp-2">
-            {name}
-          </h3>
-          
-          {description && (
-            <p className="text-xs text-gray-500 line-clamp-1">
-              {description}
+          {/* Product Info */}
+          <div className="space-y-2">
+            <h3 className="font-medium text-gray-900 text-sm leading-tight line-clamp-2">
+              {name}
+            </h3>
+            
+            {description && (
+              <p className="text-xs text-gray-500 line-clamp-1">
+                {description}
+              </p>
+            )}
+
+            <p className="font-bold text-lg text-gray-900">
+              {currency}{price.toFixed(2)}
             </p>
-          )}
-
-          <p className="font-bold text-lg text-gray-900">
-            {currency}{price.toFixed(2)}
-          </p>
+          </div>
         </div>
 
         {/* Quantity Controls */}
@@ -107,7 +112,8 @@ export function ProductCard({
             <Button
               variant="ghost"
               size="sm"
-              className="w-full h-10 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full"
+              className="w-full h-10 rounded-full"
+              style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
               onClick={handleAddToCart}
             >
               <Plus className="h-4 w-4" />
