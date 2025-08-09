@@ -10,9 +10,9 @@ import {
   ShoppingBag,
   Package,
   GalleryVerticalEnd,
+  TrendingUp,
 } from "lucide-react"
 
-import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
@@ -23,6 +23,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 
 interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
   currentView?: string
@@ -37,18 +38,15 @@ const data = {
       plan: "Admin Panel",
     },
   ],
-  navMain: [
-    {
-      title: "Inicio",
-      url: "#",
-      icon: Home,
-      isActive: true,
-      viewId: "inicio",
-    },
-  ],
   bodegones: [
     {
-      name: "Localidades",
+      name: "Inicio",
+      url: "#",
+      icon: Home,
+      viewId: "inicio",
+    },
+    {
+      name: "Bodegones",
       url: "#",
       icon: MapPin,
       viewId: "bodegones-localidades",
@@ -83,16 +81,22 @@ const data = {
       ],
     },
     {
-      name: "Repartidores",
+      name: "Ventas",
       url: "#",
-      icon: UserCheck,
-      viewId: "bodegones-repartidores",
+      icon: TrendingUp,
+      viewId: "bodegones-ventas",
     },
     {
       name: "Equipo",
       url: "#",
       icon: Users,
       viewId: "bodegones-equipo",
+    },
+    {
+      name: "Repartidores",
+      url: "#",
+      icon: UserCheck,
+      viewId: "bodegones-repartidores",
     },
     {
       name: "Métodos de Pago",
@@ -102,6 +106,12 @@ const data = {
     },
   ],
   restaurantes: [
+    {
+      name: "Inicio",
+      url: "#",
+      icon: Home,
+      viewId: "inicio",
+    },
     {
       name: "Localidades",
       url: "#",
@@ -159,15 +169,62 @@ const data = {
 }
 
 export function AppSidebar({ currentView, onViewChange, ...props }: AdminSidebarProps) {
+  const [activeTab, setActiveTab] = React.useState<'bodegones' | 'restaurantes'>('bodegones')
+
+  // Sync tab with current view
+  React.useEffect(() => {
+    if (currentView) {
+      if (currentView.startsWith('bodegones-')) {
+        setActiveTab('bodegones')
+      } else if (currentView.startsWith('restaurantes-')) {
+        setActiveTab('restaurantes')
+      }
+    }
+  }, [currentView])
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} currentView={currentView} onViewChange={onViewChange} />
-        <NavProjects projects={data.bodegones} currentView={currentView} onViewChange={onViewChange} title="Bodegones" />
-        <NavProjects projects={data.restaurantes} currentView={currentView} onViewChange={onViewChange} title="Restaurantes" />
+        {/* Navigation Tabs */}
+        <div className="px-2 pb-1">
+          <div className="flex rounded-lg bg-muted p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('bodegones')}
+              className={`flex-1 h-7 text-xs font-medium ${
+                activeTab === 'bodegones' 
+                  ? 'bg-white hover:bg-white shadow-sm' 
+                  : 'hover:bg-muted-foreground/10'
+              }`}
+            >
+              Bodegones
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveTab('restaurantes')}
+              className={`flex-1 h-7 text-xs font-medium ${
+                activeTab === 'restaurantes' 
+                  ? 'bg-white hover:bg-white shadow-sm' 
+                  : 'hover:bg-muted-foreground/10'
+              }`}
+            >
+              Restaurantes
+            </Button>
+          </div>
+        </div>
+
+        {/* Content based on active tab */}
+        {activeTab === 'bodegones' && (
+          <NavProjects projects={data.bodegones} currentView={currentView} onViewChange={onViewChange} title="" />
+        )}
+        {activeTab === 'restaurantes' && (
+          <NavProjects projects={data.restaurantes} currentView={currentView} onViewChange={onViewChange} title="" />
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
