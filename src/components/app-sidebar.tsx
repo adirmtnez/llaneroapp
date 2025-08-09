@@ -10,6 +10,8 @@ import {
   ShoppingBag,
   Package,
   GalleryVerticalEnd,
+  Store,
+  UtensilsCrossed,
   TrendingUp,
 } from "lucide-react"
 
@@ -22,6 +24,10 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 
@@ -170,6 +176,7 @@ const data = {
 
 export function AppSidebar({ currentView, onViewChange, ...props }: AdminSidebarProps) {
   const [activeTab, setActiveTab] = React.useState<'bodegones' | 'restaurantes'>('bodegones')
+  const { state } = useSidebar()
 
   // Sync tab with current view
   React.useEffect(() => {
@@ -188,35 +195,69 @@ export function AppSidebar({ currentView, onViewChange, ...props }: AdminSidebar
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
-        {/* Navigation Tabs */}
-        <div className="px-2 pb-1">
-          <div className="flex rounded-lg bg-muted p-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveTab('bodegones')}
-              className={`flex-1 h-7 text-xs font-medium ${
-                activeTab === 'bodegones' 
-                  ? 'bg-white hover:bg-white shadow-sm' 
-                  : 'hover:bg-muted-foreground/10'
-              }`}
-            >
-              Bodegones
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveTab('restaurantes')}
-              className={`flex-1 h-7 text-xs font-medium ${
-                activeTab === 'restaurantes' 
-                  ? 'bg-white hover:bg-white shadow-sm' 
-                  : 'hover:bg-muted-foreground/10'
-              }`}
-            >
-              Restaurantes
-            </Button>
+        {/* Navigation Tabs - Normal view */}
+        {state !== 'collapsed' && (
+          <div className="px-2 pb-1">
+            <div className="flex rounded-lg bg-muted p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveTab('bodegones')}
+                className={`flex-1 h-7 text-xs font-medium ${
+                  activeTab === 'bodegones' 
+                    ? 'bg-white hover:bg-white shadow-sm' 
+                    : 'hover:bg-muted-foreground/10'
+                }`}
+              >
+                Bodegones
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveTab('restaurantes')}
+                className={`flex-1 h-7 text-xs font-medium ${
+                  activeTab === 'restaurantes' 
+                    ? 'bg-white hover:bg-white shadow-sm' 
+                    : 'hover:bg-muted-foreground/10'
+                }`}
+              >
+                Restaurantes
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Navigation Tabs - Collapsed view with vertical tab style */}
+        {state === 'collapsed' && (
+          <div className="px-1 pb-1">
+            <div className="flex flex-col rounded-lg bg-muted p-0.5 gap-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveTab('bodegones')}
+                className={`h-8 w-full text-xs font-medium px-2 ${
+                  activeTab === 'bodegones' 
+                    ? 'bg-white hover:bg-white shadow-sm' 
+                    : 'hover:bg-muted-foreground/10'
+                }`}
+              >
+                <Store className="size-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveTab('restaurantes')}
+                className={`h-8 w-full text-xs font-medium px-2 ${
+                  activeTab === 'restaurantes' 
+                    ? 'bg-white hover:bg-white shadow-sm' 
+                    : 'hover:bg-muted-foreground/10'
+                }`}
+              >
+                <UtensilsCrossed className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Content based on active tab */}
         {activeTab === 'bodegones' && (

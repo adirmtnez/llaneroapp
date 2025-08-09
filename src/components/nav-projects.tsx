@@ -76,8 +76,8 @@ export function NavProjects({
   }
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      {title && <SidebarGroupLabel>{title}</SidebarGroupLabel>}
+    <SidebarGroup>
+      {title && <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">{title}</SidebarGroupLabel>}
       <SidebarMenu>
         {projects.map((item) => (
           <Collapsible
