@@ -415,6 +415,30 @@ const handleCRUDOperation = async () => {
 4. **🎯 UX consistente** con manejo de errores centralizado
 5. **🛠️ Mantenible** con API unificada para CRUD
 
+## Layout Global y Max-Width
+
+### 🎯 Max-Width Global Implementado
+Para mantener consistencia visual y evitar repetir código, se implementó un **max-width global de 1200px** en `admin-content.tsx`:
+
+```tsx
+<div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 pt-6 sm:pt-4 pb-8 sm:pb-4 items-center">
+  <div className="w-full max-w-[1200px]">
+    {renderView()}
+  </div>
+</div>
+```
+
+### ✅ Beneficios:
+- **Automático**: Todos los módulos tienen max-width sin código extra
+- **Consistente**: Mismo ancho en todas las vistas
+- **Responsive**: Se adapta a pantallas menores automáticamente
+- **DRY**: No repetir `max-w-[1200px]` en cada vista
+
+### 📝 Para Desarrolladores:
+- ❌ **NO agregar** `max-w-[1200px]` en nuevas vistas
+- ✅ **Solo usar** contenedores base como `<div className="space-y-6">`
+- ✅ El max-width se aplica automáticamente a todas las vistas
+
 ## Notas Importantes
 
 - Cada sección (Bodegones/Restaurantes) tiene su propia gestión independiente
@@ -423,6 +447,7 @@ const handleCRUDOperation = async () => {
 - **Usar Git Flow** para todas las nuevas funcionalidades y releases
 - **Aplicar estándares mobile** en todos los nuevos componentes con formularios
 - **OBLIGATORIO: Usar Nuclear Client V2.0** para todas las operaciones CRUD
+- **Max-width global**: Ya no es necesario agregar max-width en nuevas vistas
 - **Referencia estable**: Commit `2765b25` funciona perfectamente en producción
 
 ## ⚠️ Troubleshooting Nuclear Client V2.0

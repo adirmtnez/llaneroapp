@@ -118,7 +118,9 @@ export function AdminContent() {
           <AdminBreadcrumbs currentView={currentView} onViewChange={setCurrentView} />
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 pt-6 sm:pt-4 pb-8 sm:pb-4 items-center">
-          {renderView()}
+          <div className="w-full max-w-[1200px]">
+            {renderView()}
+          </div>
         </div>
       </SidebarInset>
 
