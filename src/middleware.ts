@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
 
   // Protected routes - require authentication and admin role
   const isAdminPath = pathname.startsWith('/admin')
-  const isAuthPath = pathname.startsWith('/auth') || pathname.startsWith('/login')
+  const isAuthPath = pathname.startsWith('/auth')
 
   // Skip middleware for non-protected paths
   if (!isAdminPath && !isAuthPath) {

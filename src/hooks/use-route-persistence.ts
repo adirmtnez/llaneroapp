@@ -12,7 +12,7 @@ export function useRoutePersistence() {
   // Save current route to localStorage whenever it changes
   useEffect(() => {
     // Only save routes that are not auth-related
-    if (pathname && !pathname.startsWith('/auth') && !pathname.startsWith('/login')) {
+    if (pathname && !pathname.startsWith('/auth')) {
       localStorage.setItem(ROUTE_STORAGE_KEY, pathname)
     }
   }, [pathname])
