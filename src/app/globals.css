@@ -237,3 +237,18 @@
 .overflow-x-auto::-webkit-scrollbar {
   display: none;
 }
+
+/* Efecto rebote en scroll horizontal */
+.scroll-bounce {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Safari bounce effect */
+@supports (-webkit-overflow-scrolling: touch) {
+  .scroll-bounce {
+    -webkit-overflow-scrolling: auto;
+    overflow-scrolling: auto;
+  }
+}

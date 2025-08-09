@@ -43,16 +43,19 @@ export function BottomNavigation({ currentView, onViewChange }: BottomNavigation
             <Button
               key={item.id}
               variant="ghost"
-              size="sm"
-              className={`flex flex-col items-center space-y-0.5 h-auto py-2 px-3 transition-colors ${
+              className={`flex flex-col items-center space-y-1 h-auto py-2 px-3 transition-colors ${
                 isActive 
                   ? 'text-orange-600' 
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
               onClick={() => onViewChange(item.id)}
             >
-              <Icon className={`h-10 w-10 ${isActive ? 'text-orange-600' : 'text-gray-500'}`} />
-              <span className={`text-xs font-medium mt-0.5 ${
+              <Icon 
+                className={`${isActive ? 'text-orange-600' : 'text-gray-500'}`}
+                size={24}
+                style={{ width: '24px', height: '24px', minWidth: '24px', minHeight: '24px' }}
+              />
+              <span className={`text-xs font-medium ${
                 isActive ? 'text-orange-600' : 'text-gray-500'
               }`}>
                 {item.label}
