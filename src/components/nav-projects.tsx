@@ -49,11 +49,22 @@ export function NavProjects({
   }
 
   // Check if current view is related to any parent menu item
-  const isParentActive = (item: { items?: { viewId: string }[]; viewId?: string }) => {
-    if (!item.items || !currentView) return false
+  const isParentActive = (item: { items?: { viewId?: string }[]; viewId?: string }) => {
+    if (!currentView) return false
+    
+    // Check for order detail view (items without subitems)
+    const isPedidoRelated = (item.viewId === 'bodegones-pedidos' && 
+      currentView === 'bodegones-detalle-pedido') ||
+      (item.viewId === 'restaurantes-pedidos' && 
+      currentView === 'restaurantes-detalle-pedido')
+    
+    if (isPedidoRelated) return true
+    
+    // For items with subitems
+    if (!item.items) return false
     
     // Check if any subitems are active
-    const hasActiveSubitem = item.items.some((subItem: { viewId: string }) => currentView === subItem.viewId)
+    const hasActiveSubitem = item.items.some((subItem: { viewId?: string }) => currentView === subItem.viewId)
     
     // Check for special cases like agregar/editar views
     const isProductRelated = item.viewId === 'bodegones-productos' && 
@@ -61,11 +72,7 @@ export function NavProjects({
        currentView === 'editar-producto-bodegon' ||
        currentView === 'bodegones-productos-todos')
     
-    // Check for order detail view
-    const isPedidoRelated = item.viewId === 'bodegones-pedidos' && 
-      currentView === 'bodegones-detalle-pedido'
-    
-    return hasActiveSubitem || isProductRelated || isPedidoRelated
+    return hasActiveSubitem || isProductRelated
   }
 
   return (
@@ -83,7 +90,10 @@ export function NavProjects({
               {item.items ? (
                 <>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={item.name}>
+                    <SidebarMenuButton 
+                      tooltip={item.name}
+                      isActive={currentView === item.viewId || isParentActive(item)}
+                    >
                       <item.icon />
                       <span>{item.name}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -111,7 +121,7 @@ export function NavProjects({
                 </>
               ) : (
                 <SidebarMenuButton 
-                  isActive={currentView === item.viewId}
+                  isActive={currentView === item.viewId || isParentActive(item)}
                   onClick={() => handleItemClick(item.viewId)}
                   tooltip={item.name}
                 >

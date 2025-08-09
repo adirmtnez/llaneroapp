@@ -126,9 +126,11 @@ export function AdminContent() {
     <>
       <AppSidebar currentView={currentView} onViewChange={setCurrentView} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
+        <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-4 border-b px-4 bg-background">
           <SidebarTrigger className="-ml-1" />
-          <AdminBreadcrumbs currentView={currentView} onViewChange={setCurrentView} />
+          <div className="hidden md:block">
+            <AdminBreadcrumbs currentView={currentView} onViewChange={setCurrentView} />
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 pt-6 sm:pt-4 pb-8 sm:pb-4 items-center">
           <div className="w-full max-w-[1200px]">
