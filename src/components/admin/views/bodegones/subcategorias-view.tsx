@@ -339,6 +339,12 @@ export function BodegonesSubcatView() {
       return
     }
     
+    // Verificar que hay categorías padre disponibles
+    if (parentCategories.length === 0) {
+      toast.error('No hay categorías disponibles. Crea una categoría primero en la sección "Categorías".')
+      return
+    }
+    
     if (!formData.parent_category.trim()) {
       toast.error('La categoría padre es requerida')
       return
@@ -414,8 +420,21 @@ export function BodegonesSubcatView() {
       return
     }
     
+    // Verificar que hay categorías padre disponibles
+    if (parentCategories.length === 0) {
+      toast.error('No hay categorías disponibles. Crea una categoría primero en la sección "Categorías".')
+      return
+    }
+    
     if (!formData.parent_category.trim()) {
       toast.error('La categoría padre es requerida')
+      return
+    }
+
+    // Verificar que la categoría padre existe en la lista de categorías disponibles
+    const selectedCategory = parentCategories.find(cat => cat.id === formData.parent_category)
+    if (!selectedCategory) {
+      toast.error('La categoría padre seleccionada no es válida')
       return
     }
 
@@ -618,14 +637,29 @@ export function BodegonesSubcatView() {
               <DropdownMenuItem>Eliminar seleccionadas</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button 
-            size="sm" 
-            className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
-            onClick={() => setShowAddSubcategoryModal(true)}
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Agregar
-          </Button>
+          {parentCategories.length === 0 ? (
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm border-amber-300 text-amber-700 hover:bg-amber-100"
+              onClick={() => {
+                localStorage.setItem('adminCurrentView', 'bodegones-categorias');
+                window.location.reload();
+              }}
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Crear Categorías Primero
+            </Button>
+          ) : (
+            <Button 
+              size="sm" 
+              className="whitespace-nowrap h-10 md:h-8 text-base md:text-sm"
+              onClick={() => setShowAddSubcategoryModal(true)}
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Agregar
+            </Button>
+          )}
         </div>
       </div>
 
