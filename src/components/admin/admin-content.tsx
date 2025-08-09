@@ -6,6 +6,7 @@ import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { InicioView } from './views/inicio-view'
 import { BodegonesLocView } from './views/bodegones/localidades-view'
 import { BodegonesPedView } from './views/bodegones/pedidos-view'
+import { DetallePedidoView } from './views/bodegones/detalle-pedido-view'
 import { BodegonesProductosTodosView } from './views/bodegones/productos-todos-view'
 import { BodegonesCatView } from './views/bodegones/categorias-view'
 import { BodegonesSubcatView } from './views/bodegones/subcategorias-view'
@@ -31,6 +32,7 @@ import { AdminBreadcrumbs } from './breadcrumbs'
 export function AdminContent() {
   const [currentView, setCurrentView] = useState<string | null>(null)
   const [isViewLoaded, setIsViewLoaded] = useState(false)
+  const [selectedPedido, setSelectedPedido] = useState<any>(null)
 
   // Save and restore current view from localStorage
   useEffect(() => {
@@ -63,7 +65,18 @@ export function AdminContent() {
       case 'bodegones-localidades':
         return <BodegonesLocView />
       case 'bodegones-pedidos':
-        return <BodegonesPedView />
+        return <BodegonesPedView onViewPedido={(pedido) => {
+          setSelectedPedido(pedido)
+          setCurrentView('bodegones-detalle-pedido')
+        }} />
+      case 'bodegones-detalle-pedido':
+        return <DetallePedidoView 
+          pedido={selectedPedido}
+          onBack={() => {
+            setSelectedPedido(null)
+            setCurrentView('bodegones-pedidos')
+          }} 
+        />
       case 'bodegones-productos':
         return <BodegonesProductosTodosView />
       case 'bodegones-productos-todos':

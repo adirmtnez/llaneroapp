@@ -61,7 +61,11 @@ export function NavProjects({
        currentView === 'editar-producto-bodegon' ||
        currentView === 'bodegones-productos-todos')
     
-    return hasActiveSubitem || isProductRelated
+    // Check for order detail view
+    const isPedidoRelated = item.viewId === 'bodegones-pedidos' && 
+      currentView === 'bodegones-detalle-pedido'
+    
+    return hasActiveSubitem || isProductRelated || isPedidoRelated
   }
 
   return (

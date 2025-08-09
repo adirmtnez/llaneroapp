@@ -30,6 +30,12 @@ const viewToBreadcrumbs: Record<string, BreadcrumbItem[]> = {
     { label: 'Bodegones' },
     { label: 'Pedidos', viewId: 'bodegones-pedidos' }
   ],
+  'bodegones-detalle-pedido': [
+    { label: 'Inicio', viewId: 'inicio' },
+    { label: 'Bodegones' },
+    { label: 'Pedidos', viewId: 'bodegones-pedidos' },
+    { label: 'Detalle del Pedido' }
+  ],
   'bodegones-productos': [
     { label: 'Inicio', viewId: 'inicio' },
     { label: 'Bodegones' },

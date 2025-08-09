@@ -146,7 +146,11 @@ function formatFecha(fecha: string) {
   }
 }
 
-export function BodegonesPedView() {
+interface BodegonesPedViewProps {
+  onViewPedido?: (pedido: any) => void
+}
+
+export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
   const [pedidos, setPedidos] = useState<Pedido[]>(mockPedidos)
   const [searchTerm, setSearchTerm] = useState('')
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>(pedidos)
@@ -179,6 +183,51 @@ export function BodegonesPedView() {
     
     setFilteredPedidos(filtered)
   }, [searchTerm, pedidos])
+
+  // Función para manejar el click en una card y convertir datos
+  const handlePedidoClick = (pedido: Pedido) => {
+    if (!onViewPedido) return
+    
+    // Convertir datos del pedido al formato que espera DetallePedidoView
+    const detallePedido = {
+      id: pedido.id,
+      numero: pedido.numero,
+      fecha: pedido.fecha_pedido,
+      hora: pedido.hora_pedido,
+      cliente: {
+        nombre: 'Cliente Usuario', // Mock data - vendrá de BD
+        email: 'cliente@example.com',
+        direccion: '123 Calle Principal, Ciudad'
+      },
+      metodoPago: pedido.metodo_pago,
+      estado: pedido.estado,
+      tipoEntrega: Math.random() > 0.5 ? 'domicilio' : 'pickup', // Mock random
+      direccionEntrega: '456 Avenida Principal, Centro, Ciudad 12345',
+      subtotal: pedido.total * 0.9, // Mock calculation
+      envio: pedido.total * 0.1,    // Mock calculation
+      total: pedido.total,
+      productos: [
+        // Mock productos - vendrán de BD
+        {
+          id: '1',
+          nombre: 'Producto Ejemplo 1',
+          cantidad: 2,
+          precio: pedido.total * 0.4,
+          total: pedido.total * 0.8
+        },
+        {
+          id: '2', 
+          nombre: 'Producto Ejemplo 2',
+          cantidad: 1,
+          precio: pedido.total * 0.2,
+          total: pedido.total * 0.2
+        }
+      ],
+      bodegon: pedido.bodegon_nombre
+    }
+    
+    onViewPedido(detallePedido)
+  }
 
   return (
     <div className="space-y-6">
@@ -250,7 +299,11 @@ export function BodegonesPedView() {
                 const metodoPagoIcon = getMetodoPagoIcon(pedido.metodo_pago)
                 
                 return (
-                  <Card key={pedido.id} className="hover:shadow-md transition-shadow cursor-pointer py-0">
+                  <Card 
+                    key={pedido.id} 
+                    className="hover:shadow-md transition-shadow cursor-pointer py-0"
+                    onClick={() => handlePedidoClick(pedido)}
+                  >
                     <CardContent className="p-0">
                       <div className="flex items-center justify-between p-3">
                         <div className="flex items-center space-x-3">
