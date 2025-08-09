@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -29,6 +29,13 @@ export function ProductCard({
   onClick
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(initialQuantity)
+
+  // 🔄 Sincronizar estado interno cuando cambie initialQuantity
+  // Esto asegura que cuando se elimine un producto del carrito,
+  // la card se actualice para mostrar quantity = 0
+  useEffect(() => {
+    setQuantity(initialQuantity)
+  }, [initialQuantity])
 
   const handleDecrease = () => {
     if (quantity > 0) {

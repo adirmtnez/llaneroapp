@@ -223,17 +223,26 @@ export function InicioView() {
       const { cartItems } = await loadUserCart(user.auth_user.id)
       setCartProducts(cartItems)
       
-      // Actualizar quantities para sincronizar con UI
+      // 🔄 RESETEAR COMPLETAMENTE productQuantities 
+      // Esto asegura que productos eliminados del carrito muestren cantidad 0
       const quantities: Record<string | number, number> = {}
       let totalItems = 0
       
+      // Solo agregar quantities para productos que están en el carrito
       cartItems.forEach(item => {
         quantities[item.id] = item.quantity
         totalItems += item.quantity
       })
       
+      // ✅ Resetear estado completo - productos eliminados tendrán quantity undefined/0
       setProductQuantities(quantities)
       setCartItems(totalItems)
+      
+      console.log('🔄 Cart sincronizado:', { 
+        cartItems: cartItems.length, 
+        totalItems, 
+        quantities: Object.keys(quantities).length 
+      })
     } catch (error) {
       console.error('Error cargando carrito:', error)
     } finally {
