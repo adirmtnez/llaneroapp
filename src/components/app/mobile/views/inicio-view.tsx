@@ -1,13 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ShoppingCart } from 'lucide-react'
+import { ChevronDown, ShoppingCart, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ProductCard } from '../product-card'
 import { ProductDetailDrawer } from '../product-detail-drawer'
+import { BodegonDrawer } from '../bodegon-drawer'
+import { CartDrawer } from '../cart-drawer'
 import { nuclearSelect } from '@/utils/nuclear-client'
 import type { BodegonCategory } from '@/types/bodegons'
+import { 
+  loadUserCart, 
+  addToCart, 
+  updateCartItemQuantity, 
+  removeFromCart, 
+  clearUserCart,
+  findCartItem,
+  type CartProductDetails 
+} from '@/utils/cart-service'
+import { useAuth } from '@/contexts/auth-context'
 
 // Mock data para ofertas del slider
 const offers = [
@@ -42,9 +54,16 @@ const defaultCategoryImages: Record<string, string> = {
 
 // Los restaurantes y productos ahora se cargan de la base de datos
 export function InicioView() {
+  const { user } = useAuth()
+  
+  // Debug: Log user state
+  useEffect(() => {
+    console.log('👤 Usuario actual:', user)
+    console.log('🔑 User ID:', user?.id)
+  }, [user])
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [cartItems, setCartItems] = useState(2) // Mock cart items count
-  const [selectedBodegon, setSelectedBodegon] = useState('Todos los bodegones')
+  const [cartItems, setCartItems] = useState(0) // Cart items count
+  const [selectedBodegon, setSelectedBodegon] = useState('La Estrella')
   const [productQuantities, setProductQuantities] = useState<Record<string | number, number>>({})
   const [categories, setCategories] = useState<BodegonCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -54,6 +73,12 @@ export function InicioView() {
   const [loadingRonProducts, setLoadingRonProducts] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [showProductDetail, setShowProductDetail] = useState(false)
+  const [bodegones, setBodegones] = useState<any[]>([])
+  const [loadingBodegones, setLoadingBodegones] = useState(true)
+  const [showBodegonDrawer, setShowBodegonDrawer] = useState(false)
+  const [showCartDrawer, setShowCartDrawer] = useState(false)
+  const [cartProducts, setCartProducts] = useState<CartProductDetails[]>([])
+  const [loadingCart, setLoadingCart] = useState(false)
 
   // Auto-slide para el carrusel
   useEffect(() => {
@@ -157,20 +182,121 @@ export function InicioView() {
     loadRonProducts()
   }, [])
 
+  // Cargar bodegones
+  useEffect(() => {
+    const loadBodegones = async () => {
+      try {
+        const { data, error } = await nuclearSelect(
+          'bodegons',
+          '*',
+          { is_active: true }
+        )
+        
+        if (error) {
+          console.error('Error cargando bodegones:', error)
+          return
+        }
+        
+        setBodegones(data || [])
+      } catch (error) {
+        console.error('Error cargando bodegones:', error)
+      } finally {
+        setLoadingBodegones(false)
+      }
+    }
+
+    loadBodegones()
+  }, [])
+
+  // Cargar carrito del usuario
+  useEffect(() => {
+    if (user?.auth_user?.id) {
+      loadCartFromDB()
+    }
+  }, [user?.auth_user?.id])
+
+  const loadCartFromDB = async () => {
+    if (!user?.auth_user?.id) return
+    
+    setLoadingCart(true)
+    try {
+      const { cartItems } = await loadUserCart(user.auth_user.id)
+      setCartProducts(cartItems)
+      
+      // Actualizar quantities para sincronizar con UI
+      const quantities: Record<string | number, number> = {}
+      let totalItems = 0
+      
+      cartItems.forEach(item => {
+        quantities[item.id] = item.quantity
+        totalItems += item.quantity
+      })
+      
+      setProductQuantities(quantities)
+      setCartItems(totalItems)
+    } catch (error) {
+      console.error('Error cargando carrito:', error)
+    } finally {
+      setLoadingCart(false)
+    }
+  }
+
   // Manejar cambios de cantidad de productos
-  const handleProductQuantityChange = (productId: string | number, quantity: number) => {
-    setProductQuantities(prev => ({
-      ...prev,
-      [productId]: quantity
-    }))
+  const handleProductQuantityChange = async (productId: string | number, quantity: number) => {
+    console.log('🎯 handleProductQuantityChange llamado:', { productId, quantity, userId: user?.auth_user?.id })
     
-    // Actualizar contador total del carrito
-    const totalItems = Object.values({
-      ...productQuantities,
-      [productId]: quantity
-    }).reduce((sum, qty) => sum + qty, 0)
+    if (!user?.auth_user?.id) {
+      console.log('❌ No hay usuario autenticado')
+      console.log('🔍 Estado completo del usuario:', user)
+      // TODO: Implementar navegación a login si es necesario
+      return
+    }
     
-    setCartItems(totalItems)
+    const product = ronProducts.find(p => p.id === productId)
+    if (!product) {
+      console.log('❌ Producto no encontrado:', productId)
+      return
+    }
+
+    console.log('📦 Producto encontrado:', { id: product.id, name: product.name, price: product.price })
+
+    try {
+      if (quantity === 0) {
+        console.log('🗑️ Eliminando producto del carrito')
+        // Buscar y eliminar el item del carrito
+        const { item } = await findCartItem(user.auth_user.id, String(productId), true)
+        if (item) {
+          await removeFromCart(item.id)
+        }
+      } else {
+        console.log('➕ Agregando/actualizando producto')
+        // Buscar si ya existe en el carrito
+        const { item } = await findCartItem(user.auth_user.id, String(productId), true)
+        if (item) {
+          console.log('📝 Producto existe, actualizando cantidad')
+          // Actualizar cantidad existente
+          await updateCartItemQuantity(item.id, quantity)
+        } else {
+          console.log('🆕 Producto nuevo, agregando al carrito')
+          // Agregar nuevo producto al carrito
+          const result = await addToCart(
+            user.auth_user.id,
+            String(productId),
+            quantity,
+            product.price || 0,
+            product.name,
+            true
+          )
+          console.log('🔄 Resultado addToCart:', result)
+        }
+      }
+      
+      console.log('🔄 Recargando carrito desde DB...')
+      // Recargar carrito desde DB para sincronizar
+      await loadCartFromDB()
+    } catch (error) {
+      console.error('💥 Error actualizando carrito:', error)
+    }
   }
 
   // Obtener imagen de categoría
@@ -218,6 +344,56 @@ export function InicioView() {
     setShowProductDetail(true)
   }
 
+  // Manejar selección de bodegón
+  const handleBodegonSelect = (bodegon: any) => {
+    setSelectedBodegon(bodegon.name)
+    setShowBodegonDrawer(false)
+  }
+
+  // Manejar eliminación de producto del carrito
+  const handleRemoveFromCart = async (productId: string | number) => {
+    if (!user?.auth_user?.id) return
+
+    try {
+      // Buscar el order_item_id del producto en cartProducts
+      const cartItem = cartProducts.find(item => item.id === String(productId))
+      if (cartItem?.order_item_id) {
+        await removeFromCart(cartItem.order_item_id)
+        await loadCartFromDB() // Recargar carrito
+      }
+    } catch (error) {
+      console.error('Error eliminando del carrito:', error)
+    }
+  }
+
+  // Manejar cambios de cantidad desde el carrito
+  const handleCartQuantityChange = async (productId: string | number, quantity: number) => {
+    if (!user?.auth_user?.id) return
+
+    try {
+      // Buscar el order_item_id del producto en cartProducts
+      const cartItem = cartProducts.find(item => item.id === String(productId))
+      if (cartItem?.order_item_id) {
+        await updateCartItemQuantity(cartItem.order_item_id, quantity)
+        await loadCartFromDB() // Recargar carrito
+      }
+    } catch (error) {
+      console.error('Error actualizando cantidad del carrito:', error)
+    }
+  }
+
+  // Limpiar todo el carrito
+  const handleClearCart = async () => {
+    if (!user?.auth_user?.id) return
+
+    try {
+      await clearUserCart(user.auth_user.id)
+      await loadCartFromDB() // Recargar carrito
+    } catch (error) {
+      console.error('Error limpiando carrito:', error)
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 relative">
       {/* Header simplificado */}
@@ -232,13 +408,23 @@ export function InicioView() {
             />
           </div>
           
-          {/* Map pin icon */}
+          {/* Bodegón selector */}
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-              <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-              </svg>
-            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setShowBodegonDrawer(true)}
+              className="flex items-center px-1 py-1 space-x-1 hover:opacity-70"
+            >
+              <div className="flex flex-col text-right">
+                <span className="text-sm font-medium text-gray-900">Bodegón</span>
+                <span className="text-xs text-gray-500">{selectedBodegon}</span>
+              </div>
+              <MapPin 
+                className="text-orange-600" 
+                size={24}
+                style={{ width: '24px', height: '24px', minWidth: '24px', minHeight: '24px' }}
+              />
+            </Button>
           </div>
         </div>
       </div>
@@ -402,7 +588,7 @@ export function InicioView() {
       >
         <Button 
           className="bg-black hover:bg-gray-800 text-white rounded-full px-6 py-3 shadow-lg flex items-center space-x-2 hover:scale-105 transition-transform"
-          onClick={() => {/* TODO: Abrir carrito */}}
+          onClick={() => setShowCartDrawer(true)}
         >
           <ShoppingCart className="h-5 w-5" />
           <span className="font-medium">{cartItems} productos</span>
@@ -418,6 +604,27 @@ export function InicioView() {
         onQuantityChange={handleProductQuantityChange}
         currency="$"
         getProductImage={getProductImage}
+      />
+
+      {/* Bodegon Drawer */}
+      <BodegonDrawer
+        open={showBodegonDrawer}
+        onOpenChange={setShowBodegonDrawer}
+        bodegones={bodegones}
+        loadingBodegones={loadingBodegones}
+        selectedBodegon={selectedBodegon}
+        onBodegonSelect={handleBodegonSelect}
+      />
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        open={showCartDrawer}
+        onOpenChange={setShowCartDrawer}
+        cartItems={cartProducts}
+        onQuantityChange={handleCartQuantityChange}
+        onRemoveItem={handleRemoveFromCart}
+        onClearCart={handleClearCart}
+        currency="$"
       />
     </div>
   )

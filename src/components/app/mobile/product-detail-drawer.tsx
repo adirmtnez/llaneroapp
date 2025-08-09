@@ -67,7 +67,7 @@ export function ProductDetailDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[90vh]">
+      <DrawerContent className="flex flex-col max-h-[90vh]" style={{ backgroundColor: '#F9FAFC' }}>
         <DrawerHeader className="text-left pb-4">
           <DrawerTitle className="sr-only">{product.name}</DrawerTitle>
           <DrawerDescription className="sr-only">

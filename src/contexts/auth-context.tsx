@@ -54,12 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
+      console.log('👤 Cargando perfil para usuario:', authUser.id, authUser.email)
+      
       // Get user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single()
+
+      console.log('📋 Perfil del usuario:', { profile, error: profileError })
 
       // Get user role if profile exists
       let role = null
@@ -85,9 +89,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bodegon_assignments: assignments || []
       }
 
+      console.log('✅ Usuario completo configurado:', completeUser)
       setUser(completeUser)
     } catch (error) {
-      console.error('Error loading user profile:', error)
+      console.error('❌ Error loading user profile:', error)
+      
+      // Fallback: usar solo datos de auth si no hay perfil
+      const fallbackUser: CompleteUser = {
+        auth_user: authUser,
+        profile: null,
+        role: null,
+        bodegon_assignments: []
+      }
+      
+      console.log('🔄 Usando usuario fallback:', fallbackUser)
+      setUser(fallbackUser)
     } finally {
       setLoading(false)
     }
