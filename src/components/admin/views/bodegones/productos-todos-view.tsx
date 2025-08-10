@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon, CirclePlusIcon } from "lucide-react"
+import { DownloadIcon, UploadIcon, PlusIcon, SearchIcon, FilterIcon, MoreHorizontalIcon, PackageIcon, ChevronLeftIcon, ChevronRightIcon, AlertCircleIcon, CirclePlusIcon, XIcon } from "lucide-react"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { BodegonProductWithDetails, ProductStatusFilter } from "@/types/products"
 import { useAuth } from "@/contexts/auth-context"
@@ -23,7 +23,7 @@ interface Product {
   sku?: string
   description?: string
   price: number
-  is_active_product?: boolean
+  is_active?: boolean
   created_date: string
   image_gallery_urls?: string[]
   bar_code?: string
@@ -195,10 +195,10 @@ export function BodegonesProductosTodosView() {
           const orConditions: string[] = []
           
           if (selectedFilters.includes('Activos')) {
-            orConditions.push('is_active_product.eq.true')
+            orConditions.push('is_active.eq.true')
           }
           if (selectedFilters.includes('Inactivos')) {
-            orConditions.push('is_active_product.eq.false')
+            orConditions.push('is_active.eq.false')
           }
           if (selectedFilters.includes('En Descuento')) {
             orConditions.push('is_discount.eq.true')
@@ -262,12 +262,14 @@ export function BodegonesProductosTodosView() {
       // Aplicar los mismos filtros
       paginatedQuery = applyFilters(paginatedQuery)
 
-      // 🚀 Aplicar paginación y ordenamiento
+      // 🚀 Aplicar paginación y ordenamiento (created_date DESC, id DESC para consistencia)
       paginatedQuery = paginatedQuery
         .order('created_date', { ascending: false })
+        .order('id', { ascending: false })
         .range(startIndex, endIndex)
       
       const { data: productsData, error: serviceError } = await paginatedQuery
+      
       
       if (serviceError) {
         console.error('Error loading products:', serviceError)
@@ -287,6 +289,7 @@ export function BodegonesProductosTodosView() {
         inventory_count: 0 // TODO: Implementar conteo de inventario si es necesario
       }))
 
+      
       setProducts(transformedData)
       
     } catch (err) {
@@ -686,8 +689,16 @@ export function BodegonesProductosTodosView() {
                   placeholder="Buscar productos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 md:w-64 h-10 md:h-9 text-base md:text-sm"
+                  className="pl-9 pr-9 md:w-64 h-10 md:h-9 text-base md:text-sm"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -824,12 +835,12 @@ export function BodegonesProductosTodosView() {
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge 
-                          variant={product.is_active_product ? "default" : "secondary"} 
-                          className={product.is_active_product 
+                          variant={product.is_active ? "default" : "secondary"} 
+                          className={product.is_active 
                             ? "bg-green-100 text-green-700 border-green-200" 
                             : "bg-gray-100 text-gray-700 border-gray-200"}
                         >
-                          {product.is_active_product ? 'Activo' : 'Inactivo'}
+                          {product.is_active ? 'Activo' : 'Inactivo'}
                         </Badge>
                         {product.is_discount && (
                           <Badge variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">

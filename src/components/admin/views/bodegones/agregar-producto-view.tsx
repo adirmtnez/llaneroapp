@@ -21,7 +21,7 @@ interface Product {
   sku: string | null
   description: string | null
   price: number
-  is_active_product: boolean | null
+  is_active: boolean | null
   created_date: string
   image_gallery_urls: string[] | null
   bar_code: string | null
@@ -56,7 +56,7 @@ interface BodegonProductWithDetails {
   sku?: string
   description?: string
   price: number
-  is_active_product?: boolean
+  is_active?: boolean
   created_date: string
   image_gallery_urls?: string[]
   bar_code?: string
@@ -89,7 +89,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
     price: '',
     category_id: '',
     subcategory_id: '',
-    is_active_product: true,
+    is_active: true,
     is_discount: false,
     is_promo: false,
     discounted_price: ''
@@ -229,7 +229,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         price: productToEdit.price?.toString() || '',
         category_id: productToEdit.category_id || '',
         subcategory_id: productToEdit.subcategory_id || '',
-        is_active_product: productToEdit.is_active_product ?? true,
+        is_active: productToEdit.is_active ?? true,
         is_discount: productToEdit.is_discount ?? false,
         is_promo: productToEdit.is_promo ?? false,
         discounted_price: productToEdit.discounted_price?.toString() || ''
@@ -296,7 +296,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
       price: '',
       category_id: '',
       subcategory_id: '',
-      is_active_product: true,
+      is_active: true,
       is_discount: false,
       is_promo: false,
       discounted_price: ''
@@ -375,11 +375,14 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
         price: parseFloat(formData.price),
-        is_active_product: formData.is_active_product,
+        is_active: formData.is_active,
         is_discount: formData.is_discount,
         is_promo: formData.is_promo,
         discounted_price: formData.discounted_price ? parseFloat(formData.discounted_price) : null,
-        ...(productToEdit ? { modified_date: new Date().toISOString() } : { created_by: user.auth_user.id })
+        ...(productToEdit 
+          ? { modified_date: new Date().toISOString() } 
+          : { created_by: user.auth_user.id }
+        )
       }
 
       console.log('🔍 Product data to insert/update:', productData)
@@ -553,7 +556,7 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
           price: '',
           category_id: '',
           subcategory_id: '',
-          is_active_product: true,
+          is_active: true,
           is_discount: false,
           is_promo: false,
           discounted_price: ''
@@ -1059,12 +1062,12 @@ export function AgregarProductoBodegonView({ onBack, onViewChange, productToEdit
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Select value={formData.is_active_product ? "active" : "inactive"} onValueChange={(value) => setFormData(prev => ({ ...prev, is_active_product: value === 'active' }))}>
+                <Select value={formData.is_active ? "active" : "inactive"} onValueChange={(value) => setFormData(prev => ({ ...prev, is_active: value === 'active' }))}>
                   <SelectTrigger className="h-10 md:h-9 text-base md:text-sm">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${formData.is_active_product ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      <div className={`w-2 h-2 rounded-full ${formData.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                       <SelectValue>
-                        {formData.is_active_product ? 'Activo' : 'Inactivo'}
+                        {formData.is_active ? 'Activo' : 'Inactivo'}
                       </SelectValue>
                     </div>
                   </SelectTrigger>

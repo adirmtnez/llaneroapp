@@ -203,8 +203,8 @@ export const executeNuclearQuery = async <T>(
       const result = await operation(client)
       
       if (result.error) {
-        const errorCode = result.error.code
-        const errorMessage = result.error.message || 'Error desconocido'
+        const errorCode = result.error?.code
+        const errorMessage = result.error?.message || 'Error desconocido'
         
         // Detectar errores que ameritan reintentos
         const shouldRetry = (
@@ -243,10 +243,10 @@ export const executeNuclearQuery = async <T>(
         try {
           if (result.error && typeof result.error === 'object') {
             console.error('💥 Error Details:', {
-              code: result.error.code,
-              message: result.error.message,
-              details: result.error.details,
-              hint: result.error.hint
+              code: result.error?.code || 'No code',
+              message: result.error?.message || 'No message',
+              details: result.error?.details || 'No details',
+              hint: result.error?.hint || 'No hint'
             })
           }
         } catch (logError) {
