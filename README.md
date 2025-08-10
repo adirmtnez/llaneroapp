@@ -164,6 +164,12 @@ git flow release finish 1.0.0
 - **Categorías/Subcategorías**: Filtros dinámicos inteligentes
 - **Inventarios**: Gestión de stock por bodegón
 
+### **🛒 Aplicación Cliente - Funcional**
+- **Carrito de compras**: Con loading states y optimistic updates
+- **Checkout completo**: Validación de contacto y cupones de descuento
+- **Autenticación**: Sistema de usuarios con perfil automático
+- **Navegación SPA**: Vista de productos, carrito y checkout integrados
+
 ### **⚡ En Desarrollo**
 - **Restaurantes**: Misma estructura que bodegones
 - **Repartidores**: Gestión de personal de delivery

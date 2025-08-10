@@ -647,3 +647,184 @@ const columns = [
 3. **Separar count query** de data query para mejor rendimiento
 4. **Cachear consultas** cuando sea apropiado
 5. **Usar skeletons** durante carga para mejor UX
+
+## 🛒 Sistema de Checkout Completo - Aplicación Cliente
+
+### 🚀 Características Implementadas
+
+El sistema de checkout de la aplicación cliente incluye funcionalidades completas para gestión de carrito, validación de datos y procesamiento de pedidos.
+
+#### **1. Carrito de Compras Inteligente**
+- ✅ **Loading states**: Spinners en botones + y - durante operaciones
+- ✅ **Optimistic updates deshabilitados**: Para usuarios invitados
+- ✅ **Consulta directa**: Carga productos desde `order_item` en tiempo real
+- ✅ **Sincronización automática**: Estado consistente entre vistas
+
+#### **2. Checkout con Validación de Contacto**
+- ✅ **Drawer de contacto**: Validación antes de procesar pedido
+- ✅ **Auto-carga datos**: `phone_dial` y `phone_number` desde perfil
+- ✅ **Actualización condicional**: Solo actualiza BD si campos están vacíos
+- ✅ **Prefijos venezolanos**: 0414, 0424, 0416, 0426, 0412
+
+#### **3. Sistema de Cupones de Descuento**
+- ✅ **Tipos de descuento**: Porcentual y monto fijo
+- ✅ **Cálculos automáticos**: Subtotal, envío, descuento, total
+- ✅ **Aplicación inteligente**: Cupón automático para nuevos usuarios
+- ✅ **Visualización clara**: Línea de descuento en resumen de compra
+
+### 🎯 Componentes Clave Implementados
+
+#### **CheckoutView - Vista Principal**
+```typescript
+// Consulta directa a order_item
+const { data, error } = await nuclearSelect(
+  'order_item',
+  `*, bodegon_products!bodegon_product_item(id, name, price, image_gallery_urls)`,
+  { 
+    created_by: user.auth_user.id,
+    order: null // Solo items no confirmados
+  }
+)
+```
+
+#### **Loading States en ProductCard**
+```typescript
+// Spinner en lugar de icono durante loading
+{loading ? (
+  <Loader2 className="h-4 w-4 animate-spin" />
+) : (
+  <Plus className="h-4 w-4" />
+)}
+```
+
+#### **Validación de Contacto**
+```typescript
+// Solo actualiza BD si campos están vacíos
+if (!user.profile.phone_dial || user.profile.phone_dial === null) {
+  updates.phone_dial = contactData.phonePrefix
+}
+```
+
+### 📊 Cálculos de Checkout
+
+#### **Fórmula de Totales**
+```typescript
+const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+const shippingCost = deliveryMode === 'delivery' ? 2.00 : 0
+const couponDiscount = appliedCoupon 
+  ? appliedCoupon.type === 'percentage'
+    ? (subtotal * appliedCoupon.discount / 100)
+    : appliedCoupon.discount
+  : 0
+const total = subtotal + shippingCost - couponDiscount
+```
+
+#### **Tipos de Cupones Disponibles**
+```typescript
+const availableCoupons = [
+  { code: 'DESCUENTO10', discount: 10, type: 'percentage' },
+  { code: 'SAVE5', discount: 5, type: 'fixed' },
+  { code: 'WELCOME15', discount: 15, type: 'percentage' }
+]
+```
+
+### 🎨 Estándares UI Mobile-First Aplicados
+
+#### **Inputs y Selects Consistentes**
+```css
+/* Todos los inputs y dropdowns */
+.checkout-input { @apply h-11 text-base min-h-[44px] }
+
+/* Botones primarios */  
+.checkout-button { @apply h-11 text-base font-semibold }
+```
+
+#### **Drawer Design System**
+- ✅ **Border radius**: `rounded-t-[20px]` en todos los drawers
+- ✅ **Background**: `#F9FAFC` para consistencia visual
+- ✅ **Altura máxima**: `max-h-[85vh]` para mejor UX móvil
+
+### 🔄 Flujo de Checkout Completo
+
+#### **1. Agregar Productos**
+```
+Usuario click "+" → Loading state → Nuclear Client → BD actualizada → UI sincronizada
+```
+
+#### **2. Navegar a Checkout** 
+```
+Vista Checkout → Consulta directa order_item → Mostrar productos reales + totales
+```
+
+#### **3. Validación de Contacto**
+```
+Click "Continuar" → Drawer contacto → Auto-llenar datos → Validar → Actualizar BD si vacío
+```
+
+#### **4. Resumen Visual**
+```
+Subtotal:           $20.00
+Envío:              $2.00  
+Cupón (WELCOME15):  -$3.00
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total:              $19.00
+```
+
+### 📱 Optimizaciones de Performance
+
+#### **Consultas Optimizadas**
+- ✅ **Join eficiente**: Una sola query para items + productos
+- ✅ **Filtros precisos**: Solo items del usuario sin orden
+- ✅ **Loading states**: UX fluida durante cargas
+- ✅ **Error handling**: Manejo robusto de errores
+
+#### **Estados Reactivos**
+- ✅ **useEffect inteligente**: Evita loops infinitos
+- ✅ **Dependencias optimizadas**: Re-renders mínimos necesarios
+- ✅ **Estados locales**: Separación clara de responsabilidades
+
+### 🛠️ Para Desarrolladores
+
+#### **Agregar Nuevo Método de Pago**
+```typescript
+// En checkout-view.tsx
+const paymentMethods = [
+  {
+    id: 'nuevo-metodo',
+    name: 'Nuevo Método',
+    icon: NuevoIcon,
+    color: 'bg-color-class'
+  }
+]
+```
+
+#### **Modificar Cálculo de Envío**
+```typescript
+// Lógica personalizable
+const shippingCost = deliveryMode === 'delivery' 
+  ? calculateShippingByDistance(address) 
+  : 0
+```
+
+#### **Crear Nuevo Tipo de Cupón**
+```typescript
+// Extensible para nuevos tipos
+const couponDiscount = appliedCoupon 
+  ? calculateDiscount(appliedCoupon, subtotal)
+  : 0
+```
+
+### ✅ Testing y Validación
+
+#### **Casos de Prueba Críticos**
+1. **Usuario invitado**: No debe actualizar UI optimistically
+2. **Cambio de pestañas**: Checkout debe mantener datos
+3. **Cupones**: Cálculos correctos en diferentes escenarios
+4. **Validación contacto**: Solo actualiza BD cuando necesario
+5. **Loading states**: Feedback visual en todas las operaciones
+
+#### **Logs de Debug Disponibles**
+- `🔍 Cargando items del carrito para usuario:`
+- `📞 Cargando phone_dial del usuario:`
+- `🔄 Actualizando phone_dial vacío en BD:`
+- `✅ Datos del usuario actualizados correctamente en BD`
