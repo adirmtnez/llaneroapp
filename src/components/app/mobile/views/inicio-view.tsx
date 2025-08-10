@@ -20,6 +20,7 @@ import {
   type CartProductDetails 
 } from '@/utils/cart-service'
 import { useAuth } from '@/contexts/auth-context'
+import type { BodegonPreference } from '@/utils/bodegon-preferences'
 
 // Mock data para ofertas del slider
 const offers = [
@@ -52,8 +53,18 @@ const defaultCategoryImages: Record<string, string> = {
   'default': 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop&crop=center'
 }
 
+interface InicioViewProps {
+  onNavigateToCheckout?: () => void
+  selectedBodegon?: BodegonPreference
+  onBodegonChange?: (bodegon: BodegonPreference) => void
+}
+
 // Los restaurantes y productos ahora se cargan de la base de datos
-export function InicioView() {
+export function InicioView({ 
+  onNavigateToCheckout, 
+  selectedBodegon = { id: '', name: 'La Estrella' }, 
+  onBodegonChange 
+}: InicioViewProps) {
   const { user } = useAuth()
   
   // Debug: Log user state
@@ -63,7 +74,6 @@ export function InicioView() {
   }, [user])
   const [currentSlide, setCurrentSlide] = useState(0)
   const [cartItems, setCartItems] = useState(0) // Cart items count
-  const [selectedBodegon, setSelectedBodegon] = useState('La Estrella')
   const [productQuantities, setProductQuantities] = useState<Record<string | number, number>>({})
   const [categories, setCategories] = useState<BodegonCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -355,7 +365,10 @@ export function InicioView() {
 
   // Manejar selección de bodegón
   const handleBodegonSelect = (bodegon: any) => {
-    setSelectedBodegon(bodegon.name)
+    onBodegonChange?.({
+      id: bodegon.id,
+      name: bodegon.name
+    })
     setShowBodegonDrawer(false)
   }
 
@@ -426,7 +439,7 @@ export function InicioView() {
             >
               <div className="flex flex-col text-right">
                 <span className="text-sm font-medium text-gray-900">Bodegón</span>
-                <span className="text-xs text-gray-500">{selectedBodegon}</span>
+                <span className="text-xs text-gray-500">{selectedBodegon.name}</span>
               </div>
               <MapPin 
                 className="text-orange-600" 
@@ -621,7 +634,7 @@ export function InicioView() {
         onOpenChange={setShowBodegonDrawer}
         bodegones={bodegones}
         loadingBodegones={loadingBodegones}
-        selectedBodegon={selectedBodegon}
+        selectedBodegon={selectedBodegon.name}
         onBodegonSelect={handleBodegonSelect}
       />
 
@@ -633,6 +646,7 @@ export function InicioView() {
         onQuantityChange={handleCartQuantityChange}
         onRemoveItem={handleRemoveFromCart}
         onClearCart={handleClearCart}
+        onNavigateToCheckout={onNavigateToCheckout}
         currency="$"
       />
     </div>

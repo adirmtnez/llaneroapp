@@ -171,15 +171,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             )
 
-            // Insert user profile with Customer role (4)
+            // Insert user profile with Customer role (4) - usar upsert para prevenir duplicados
             const { error: profileError } = await nuclearClient
               .from('users')
-              .insert({
+              .upsert({
                 id: authData.user.id,
+                user_auth: authData.user.id, // ✅ Agregar referencia al usuario de auth
                 name: data.name,
                 email: data.email,
                 role: 4, // Customer role
                 created_at: new Date().toISOString()
+              }, {
+                onConflict: 'id' // Si ya existe, actualizar en lugar de crear duplicado
               })
 
             if (profileError) {
@@ -192,15 +195,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         } catch (nuclearError) {
           console.error('Nuclear solution error, using fallback:', nuclearError)
-          // Fallback to regular supabase client
+          // Fallback to regular supabase client - usar upsert para prevenir duplicados
           const { error: profileError } = await supabase
             .from('users')
-            .insert({
+            .upsert({
               id: authData.user.id,
+              user_auth: authData.user.id, // ✅ Agregar referencia al usuario de auth
               name: data.name,
               email: data.email,
               role: 4, // Customer role
               created_at: new Date().toISOString()
+            }, {
+              onConflict: 'id' // Si ya existe, actualizar en lugar de crear duplicado
             })
 
           if (profileError) {

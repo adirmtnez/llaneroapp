@@ -21,6 +21,7 @@ interface CartDrawerProps {
   onQuantityChange: (productId: string | number, quantity: number) => void
   onRemoveItem: (productId: string | number) => void
   onClearCart: () => void
+  onNavigateToCheckout?: () => void
   currency?: string
 }
 
@@ -31,6 +32,7 @@ export function CartDrawer({
   onQuantityChange,
   onRemoveItem,
   onClearCart,
+  onNavigateToCheckout,
   currency = '$'
 }: CartDrawerProps) {
   // Estado del cupón
@@ -113,9 +115,9 @@ export function CartDrawer({
             <div className="space-y-4 pb-6">
               {cartItems.map((item) => (
                 <div key={item.id} className="bg-white rounded-[20px] p-4 border border-gray-100 shadow-sm">
-                  {/* Primera fila: Imagen + Info del producto */}
-                  <div className="flex items-center space-x-4 mb-3">
-                    {/* Imagen del producto */}
+                  {/* Layout de 2 columnas */}
+                  <div className="flex space-x-4">
+                    {/* Columna 1: Imagen del producto */}
                     <div className="w-16 h-16 bg-gray-100 rounded-[15px] overflow-hidden flex-shrink-0">
                       {item.image ? (
                         <img
@@ -130,55 +132,58 @@ export function CartDrawer({
                       )}
                     </div>
 
-                    {/* Info del producto - Solo título */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm text-gray-900 truncate">
-                        {item.name}
-                      </h3>
-                    </div>
-                  </div>
+                    {/* Columna 2: Todo el contenido */}
+                    <div className="flex-1 flex flex-col justify-between min-w-0">
+                      {/* Título del producto */}
+                      <div className="mb-2">
+                        <h3 className="font-medium text-sm text-gray-900 truncate">
+                          {item.name}
+                        </h3>
+                      </div>
 
-                  {/* Segunda fila: Precio y controles alineados a la derecha */}
-                  <div className="flex justify-end items-center space-x-2" style={{ marginTop: '-25px' }}>
-                    {/* Precio */}
-                    <span className="font-semibold text-sm text-gray-900">
-                      {currency}{item.price.toFixed(2)}
-                    </span>
-                    
-                    {/* Selector de cantidad más pequeño */}
-                    <div className="flex items-center bg-orange-600 rounded-full h-8 px-1 min-w-[80px]">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
-                        onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      
-                      <span className="flex-1 text-center text-white font-medium text-xs">
-                        {item.quantity}
-                      </span>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
-                        onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
+                      {/* Controles agrupados - precio junto a botones */}
+                      <div className="flex justify-end items-center space-x-2">
+                        {/* Precio */}
+                        <span className="font-semibold text-sm text-gray-900">
+                          {currency}{item.price.toFixed(2)}
+                        </span>
+                        
+                        {/* Selector de cantidad más pequeño */}
+                        <div className="flex items-center bg-orange-600 rounded-full h-8 px-1 min-w-[80px]">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
+                            onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          
+                          <span className="flex-1 text-center text-white font-medium text-xs">
+                            {item.quantity}
+                          </span>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
+                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
 
-                    {/* Botón eliminar más pequeño */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 rounded-full hover:bg-red-50 text-red-500 hover:text-red-600 p-0"
-                      onClick={() => onRemoveItem(item.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                        {/* Botón eliminar más pequeño */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 rounded-full hover:bg-red-50 text-red-500 hover:text-red-600 p-0"
+                          onClick={() => onRemoveItem(item.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -284,9 +289,8 @@ export function CartDrawer({
               className="w-full h-12 rounded-full font-semibold text-base transition-all duration-200 hover:scale-105 active:scale-95"
               style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
               onClick={() => {
-                // TODO: Implementar navegación a checkout
-                console.log('Ir a pagar')
-                onOpenChange(false)
+                onOpenChange(false) // Cerrar carrito
+                onNavigateToCheckout?.() // Navegar a checkout
               }}
             >
               Ir a Pagar
