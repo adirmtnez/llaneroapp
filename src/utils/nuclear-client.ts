@@ -47,6 +47,81 @@ const getValidToken = (): { token: string | null, error: string | null } => {
   }
 }
 
+// ✅ Cliente público para datos que no requieren autenticación
+export const createPublicClient = async () => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    
+    const publicClient = createClient(
+      'https://zykwuzuukrmgztpgnbth.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5a3d1enV1a3JtZ3p0cGduYnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzM5MTQsImV4cCI6MjA2OTM0OTkxNH0.w2L8RtmI8q4EA91o5VUGnuxHp87FJYRI5-CFOIP_Hjw',
+      {
+        auth: { persistSession: false },
+        global: {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      }
+    )
+
+    return { client: publicClient, error: null }
+  } catch (error) {
+    console.error('💥 Error creando cliente público:', error)
+    return { client: null, error: 'Error creando cliente público' }
+  }
+}
+
+// ✅ Función para consultas públicas (sin auth)
+export const publicSelect = async (
+  tableName: string, 
+  selectFields: string = '*', 
+  filters: Record<string, any> = {},
+  showUserError: boolean = false,
+  customErrorMessage?: string
+) => {
+  try {
+    console.log('🔍 Public Query:', { tableName, selectFields, filters })
+    
+    const { client, error: clientError } = await createPublicClient()
+    if (clientError || !client) {
+      if (showUserError) {
+        toast.error(customErrorMessage || 'Error de conexión')
+      }
+      return { data: null, error: clientError }
+    }
+
+    // Construir query
+    let query = client.from(tableName).select(selectFields)
+    
+    // Aplicar filtros
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value)
+      }
+    })
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('💥 Error en consulta pública:', error)
+      if (showUserError) {
+        toast.error(customErrorMessage || 'Error cargando datos')
+      }
+      return { data: null, error: error.message }
+    }
+
+    console.log('✅ Public Query exitosa:', { tableName, count: data?.length || 0 })
+    return { data, error: null }
+  } catch (error) {
+    console.error('💥 Error inesperado en consulta pública:', error)
+    if (showUserError) {
+      toast.error(customErrorMessage || 'Error inesperado')
+    }
+    return { data: null, error: 'Error inesperado en consulta' }
+  }
+}
+
 export const createNuclearClient = async (forceNew = false) => {
   // 1. Obtener y validar token
   const { token: accessToken, error: tokenError } = getValidToken()

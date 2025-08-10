@@ -148,8 +148,8 @@ export function CuentaView() {
         handleLogout()
         break
       case 'login':
-        // TODO: Implementar navegación a login
-        console.log('Navegando a login...')
+        // Redirigir a la página de autenticación
+        window.location.href = '/auth'
         break
       default:
         // Para las opciones de la segunda card (soporte, términos, etc.)
@@ -192,6 +192,7 @@ export function CuentaView() {
       {/* Lista de opciones */}
       <div className="flex-1 p-4 space-y-4 pb-24">
         {user ? (
+          // Usuario autenticado - mostrar opciones del menú
           <>
             {/* Card principal - Solo para usuarios autenticados */}
             <Card className="overflow-hidden shadow-none rounded-[30px]">

@@ -260,7 +260,7 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella' }: Checko
 
       {/* Address Drawer */}
       <Drawer open={showAddressDrawer} onOpenChange={setShowAddressDrawer}>
-        <DrawerContent className="flex flex-col max-h-[85vh]" style={{ backgroundColor: '#F9FAFC' }}>
+        <DrawerContent className="flex flex-col max-h-[85vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
           <DrawerHeader className="text-left pb-4">
             <DrawerTitle className="text-lg font-semibold text-gray-900">
               Seleccionar dirección

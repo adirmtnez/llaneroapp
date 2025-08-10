@@ -23,7 +23,7 @@ export function BodegonDrawer({
 }: BodegonDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[70vh]" style={{ backgroundColor: '#F9FAFC' }}>
+      <DrawerContent className="flex flex-col max-h-[70vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
         <DrawerHeader className="text-left pb-4">
           <DrawerTitle className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
             <MapPin className="h-5 w-5 text-orange-600" />

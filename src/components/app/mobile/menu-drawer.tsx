@@ -22,7 +22,7 @@ export function MenuDrawer({
 }: MenuDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[90vh]" style={{ backgroundColor: '#F9FAFC' }}>
+      <DrawerContent className="flex flex-col max-h-[90vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
         <DrawerHeader className="text-left pb-4">
           <DrawerTitle className="sr-only">{title}</DrawerTitle>
           <DrawerDescription className="sr-only">

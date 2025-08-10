@@ -8,7 +8,8 @@ import { ProductCard } from '../product-card'
 import { ProductDetailDrawer } from '../product-detail-drawer'
 import { BodegonDrawer } from '../bodegon-drawer'
 import { CartDrawer } from '../cart-drawer'
-import { nuclearSelect } from '@/utils/nuclear-client'
+// AuthModal eliminado - ahora navegamos a vista cuenta
+import { nuclearSelect, publicSelect } from '@/utils/nuclear-client'
 import type { BodegonCategory } from '@/types/bodegons'
 import { 
   loadUserCart, 
@@ -57,13 +58,15 @@ interface InicioViewProps {
   onNavigateToCheckout?: () => void
   selectedBodegon?: BodegonPreference
   onBodegonChange?: (bodegon: BodegonPreference) => void
+  onNavigateToAccount?: () => void
 }
 
 // Los restaurantes y productos ahora se cargan de la base de datos
 export function InicioView({ 
   onNavigateToCheckout, 
   selectedBodegon = { id: '', name: 'La Estrella' }, 
-  onBodegonChange 
+  onBodegonChange,
+  onNavigateToAccount
 }: InicioViewProps) {
   const { user } = useAuth()
   
@@ -89,6 +92,7 @@ export function InicioView({
   const [showCartDrawer, setShowCartDrawer] = useState(false)
   const [cartProducts, setCartProducts] = useState<CartProductDetails[]>([])
   const [loadingCart, setLoadingCart] = useState(false)
+  // Estado del modal de auth eliminado - ahora navegamos a vista cuenta
 
   // Auto-slide para el carrusel
   useEffect(() => {
@@ -98,11 +102,11 @@ export function InicioView({
     return () => clearInterval(timer)
   }, [])
 
-  // Cargar categorías reales
+  // Cargar categorías reales - usar consulta pública
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const { data, error } = await nuclearSelect(
+        const { data, error } = await publicSelect(
           'bodegon_categories',
           '*',
           { is_active: true }
@@ -124,11 +128,11 @@ export function InicioView({
     loadCategories()
   }, [])
 
-  // Cargar restaurantes reales
+  // Cargar restaurantes reales - usar consulta pública
   useEffect(() => {
     const loadRestaurants = async () => {
       try {
-        const { data, error } = await nuclearSelect(
+        const { data, error } = await publicSelect(
           'restaurants',
           '*',
           { is_active: true }
@@ -150,12 +154,12 @@ export function InicioView({
     loadRestaurants()
   }, [])
 
-  // Cargar productos de Ron
+  // Cargar productos de Ron - usar consulta pública
   useEffect(() => {
     const loadRonProducts = async () => {
       try {
         // Primero buscar la subcategoría "Ron"
-        const { data: subcategories, error: subError } = await nuclearSelect(
+        const { data: subcategories, error: subError } = await publicSelect(
           'bodegon_subcategories',
           '*',
           { name: 'Ron', is_active: true }
@@ -170,7 +174,7 @@ export function InicioView({
         const ronSubcategoryId = subcategories[0].id
 
         // Buscar productos de la subcategoría Ron
-        const { data: products, error: prodError } = await nuclearSelect(
+        const { data: products, error: prodError } = await publicSelect(
           'bodegon_products',
           '*, bodegon_subcategories(name)',
           { subcategory_id: ronSubcategoryId, is_active: true }
@@ -192,11 +196,11 @@ export function InicioView({
     loadRonProducts()
   }, [])
 
-  // Cargar bodegones
+  // Cargar bodegones - usar consulta pública
   useEffect(() => {
     const loadBodegones = async () => {
       try {
-        const { data, error } = await nuclearSelect(
+        const { data, error } = await publicSelect(
           'bodegons',
           '*',
           { is_active: true }
@@ -218,10 +222,15 @@ export function InicioView({
     loadBodegones()
   }, [])
 
-  // Cargar carrito del usuario
+  // Cargar carrito del usuario - solo si está autenticado
   useEffect(() => {
     if (user?.auth_user?.id) {
       loadCartFromDB()
+    } else {
+      // Usuario invitado - resetear carrito
+      setCartProducts([])
+      setCartItems(0)
+      setProductQuantities({})
     }
   }, [user?.auth_user?.id])
 
@@ -264,10 +273,10 @@ export function InicioView({
   const handleProductQuantityChange = async (productId: string | number, quantity: number) => {
     console.log('🎯 handleProductQuantityChange llamado:', { productId, quantity, userId: user?.auth_user?.id })
     
+    // Si no hay usuario autenticado, navegar a la vista cuenta (SIN actualizar estado local)
     if (!user?.auth_user?.id) {
-      console.log('❌ No hay usuario autenticado')
-      console.log('🔍 Estado completo del usuario:', user)
-      // TODO: Implementar navegación a login si es necesario
+      console.log('👤 Usuario invitado - navegando a vista cuenta para autenticación')
+      onNavigateToAccount?.()
       return
     }
     
@@ -311,12 +320,16 @@ export function InicioView({
       }
       
       console.log('🔄 Recargando carrito desde DB...')
-      // Recargar carrito desde DB para sincronizar
+      // Recargar carrito desde DB para sincronizar - esto actualizará productQuantities
       await loadCartFromDB()
     } catch (error) {
       console.error('💥 Error actualizando carrito:', error)
+      // En caso de error, no actualizar el estado local
+      // El productQuantities permanecerá igual que antes
     }
   }
+
+  // Lógica de acciones pendientes eliminada - navegación directa a vista cuenta
 
   // Obtener imagen de categoría
   const getCategoryImage = (category: BodegonCategory) => {
@@ -600,10 +613,10 @@ export function InicioView({
         )}
       </div>
 
-      {/* Píldora flotante del carrito */}
+      {/* Píldora flotante del carrito - Solo mostrar si hay usuario autenticado y productos */}
       <div 
         className={`fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-300 ease-in-out ${
-          cartItems > 0 
+          user?.auth_user?.id && cartItems > 0 
             ? 'translate-y-0 opacity-100 scale-100' 
             : 'translate-y-8 opacity-0 scale-90 pointer-events-none'
         }`}
@@ -649,6 +662,8 @@ export function InicioView({
         onNavigateToCheckout={onNavigateToCheckout}
         currency="$"
       />
+
+      {/* Auth Modal eliminado - ahora navegamos a vista cuenta */}
     </div>
   )
 }

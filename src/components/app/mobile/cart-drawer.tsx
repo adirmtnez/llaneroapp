@@ -85,7 +85,7 @@ export function CartDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[85vh]" style={{ backgroundColor: '#F9FAFC' }}>
+      <DrawerContent className="flex flex-col max-h-[85vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
         <DrawerHeader className="text-left pb-4">
           <div className="flex items-center justify-between">
             <DrawerTitle className="flex items-center space-x-2 text-lg font-semibold text-gray-900">

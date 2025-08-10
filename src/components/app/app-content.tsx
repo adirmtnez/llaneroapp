@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BottomNavigation } from './mobile/bottom-navigation'
 import { InicioView } from './mobile/views/inicio-view'
 import { BuscarView } from './mobile/views/buscar-view'
@@ -12,6 +12,7 @@ import { loadBodegonPreference, saveBodegonPreference, type BodegonPreference } 
 
 export default function AppContent() {
   const { user } = useAuth()
+  const mainRef = useRef<HTMLElement>(null)
   const [currentView, setCurrentView] = useState<string | null>(null)
   const [isViewLoaded, setIsViewLoaded] = useState(false)
   const [selectedBodegon, setSelectedBodegon] = useState<BodegonPreference>({
@@ -44,10 +45,18 @@ export default function AppContent() {
         setBodegonLoaded(true)
       })
     } else {
-      // Si no hay usuario, usar bodegón por defecto
+      // Si no hay usuario (invitado), usar bodegón por defecto
+      console.log('👤 Usuario invitado - usando bodegón por defecto')
       setBodegonLoaded(true)
     }
   }, [user?.auth_user?.id])
+
+  // Efecto para resetear scroll cuando cambia la vista
+  useEffect(() => {
+    if (mainRef.current && currentView) {
+      mainRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [currentView])
 
   // Don't render until view and bodegon are loaded
   if (!isViewLoaded || !currentView || !bodegonLoaded) {
@@ -70,11 +79,25 @@ export default function AppContent() {
       } catch (error) {
         console.error('Error guardando preferencia de bodegón:', error)
       }
+    } else if (!user?.auth_user?.id) {
+      console.log('👤 Usuario invitado - preferencia no persistida')
     }
   }
 
   const renderView = () => {
-    const navigateToCheckout = () => setCurrentView('checkout')
+    const navigateToCheckout = () => {
+      // Solo permitir checkout si está autenticado
+      if (user?.auth_user?.id) {
+        setCurrentView('checkout')
+      } else {
+        console.log('👤 Usuario invitado - checkout requiere autenticación')
+        // El componente que llame esto debería manejar la auth antes de llamar
+      }
+    }
+    
+    const navigateToAccount = () => {
+      setCurrentView('cuenta')
+    }
     
     switch (currentView) {
       case 'inicio':
@@ -82,6 +105,7 @@ export default function AppContent() {
           onNavigateToCheckout={navigateToCheckout} 
           selectedBodegon={selectedBodegon}
           onBodegonChange={handleBodegonChange}
+          onNavigateToAccount={navigateToAccount}
         />
       case 'buscar':
         return <BuscarView />
@@ -99,6 +123,7 @@ export default function AppContent() {
           onNavigateToCheckout={navigateToCheckout}
           selectedBodegon={selectedBodegon}
           onBodegonChange={handleBodegonChange}
+          onNavigateToAccount={navigateToAccount}
         />
     }
   }
@@ -106,7 +131,7 @@ export default function AppContent() {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Main Content */}
-      <main className={`flex-1 overflow-y-auto ${currentView === 'checkout' ? '' : 'pb-20'}`}>
+      <main ref={mainRef} className={`flex-1 overflow-y-auto ${currentView === 'checkout' ? '' : 'pb-20'}`}>
         {renderView()}
       </main>
 

@@ -40,20 +40,23 @@ export function ProductCard({
   const handleDecrease = () => {
     if (quantity > 0) {
       const newQuantity = quantity - 1
-      setQuantity(newQuantity)
+      // ❌ NO actualizar estado local inmediatamente
+      // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
       onQuantityChange?.(id, newQuantity)
     }
   }
 
   const handleIncrease = () => {
     const newQuantity = quantity + 1
-    setQuantity(newQuantity)
+    // ❌ NO actualizar estado local inmediatamente
+    // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
     onQuantityChange?.(id, newQuantity)
   }
 
   const handleAddToCart = () => {
     const newQuantity = 1
-    setQuantity(newQuantity)
+    // ❌ NO actualizar estado local inmediatamente
+    // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
     onQuantityChange?.(id, newQuantity)
   }
 

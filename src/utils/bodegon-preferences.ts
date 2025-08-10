@@ -1,4 +1,4 @@
-import { nuclearSelect, nuclearUpdate } from './nuclear-client'
+import { nuclearSelect, nuclearUpdate, publicSelect } from './nuclear-client'
 
 export interface BodegonPreference {
   id: string
@@ -78,7 +78,7 @@ export async function loadBodegonPreference(userId: string): Promise<BodegonPref
  */
 async function getDefaultBodegon(): Promise<BodegonPreference> {
   try {
-    const { data } = await nuclearSelect(
+    const { data } = await publicSelect(
       'bodegons',
       'id, name',
       { is_active: true }
@@ -110,7 +110,7 @@ async function getDefaultBodegon(): Promise<BodegonPreference> {
  */
 export async function getActiveBodegones() {
   try {
-    const { data, error } = await nuclearSelect(
+    const { data, error } = await publicSelect(
       'bodegons',
       'id, name, address, phone',
       { is_active: true }

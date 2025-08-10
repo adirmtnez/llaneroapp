@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -35,25 +35,34 @@ export function ProductDetailDrawer({
 }: ProductDetailDrawerProps) {
   const [quantity, setQuantity] = useState(initialQuantity)
 
+  // 🔄 Sincronizar estado interno cuando cambie initialQuantity
+  // Esto asegura que el drawer se actualice correctamente con el estado del carrito
+  useEffect(() => {
+    setQuantity(initialQuantity)
+  }, [initialQuantity])
+
   if (!product) return null
 
   const handleDecrease = () => {
     if (quantity > 0) {
       const newQuantity = quantity - 1
-      setQuantity(newQuantity)
+      // ❌ NO actualizar estado local inmediatamente
+      // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
       onQuantityChange?.(product.id, newQuantity)
     }
   }
 
   const handleIncrease = () => {
     const newQuantity = quantity + 1
-    setQuantity(newQuantity)
+    // ❌ NO actualizar estado local inmediatamente
+    // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
     onQuantityChange?.(product.id, newQuantity)
   }
 
   const handleAddToCart = () => {
     const newQuantity = 1
-    setQuantity(newQuantity)
+    // ❌ NO actualizar estado local inmediatamente
+    // setQuantity(newQuantity) - Esto se hará solo si la operación es exitosa
     onQuantityChange?.(product.id, newQuantity)
   }
 
@@ -67,7 +76,7 @@ export function ProductDetailDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="flex flex-col max-h-[90vh]" style={{ backgroundColor: '#F9FAFC' }}>
+      <DrawerContent className="flex flex-col max-h-[90vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
         <DrawerHeader className="text-left pb-4">
           <DrawerTitle className="sr-only">{product.name}</DrawerTitle>
           <DrawerDescription className="sr-only">
@@ -93,7 +102,7 @@ export function ProductDetailDrawer({
             {/* Información del producto */}
             <div className="space-y-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                <h1 className="text-xl font-bold text-gray-900 mb-2">
                   {product.name}
                 </h1>
                 
