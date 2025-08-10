@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Minus } from 'lucide-react'
+import { Plus, Minus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -15,6 +15,7 @@ interface ProductCardProps {
   onQuantityChange?: (id: string | number, quantity: number) => void
   currency?: string
   onClick?: () => void
+  loading?: boolean
 }
 
 export function ProductCard({
@@ -26,7 +27,8 @@ export function ProductCard({
   initialQuantity = 0,
   onQuantityChange,
   currency = '$',
-  onClick
+  onClick,
+  loading = false
 }: ProductCardProps) {
   const [quantity, setQuantity] = useState(initialQuantity)
 
@@ -101,12 +103,17 @@ export function ProductCard({
                 size="sm"
                 className="h-8 w-8 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
                 onClick={handleDecrease}
+                disabled={loading}
               >
                 <Minus className="h-4 w-4" />
               </Button>
               
               <span className="flex-1 text-center text-white font-medium text-sm">
-                {quantity}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                ) : (
+                  quantity
+                )}
               </span>
               
               <Button
@@ -114,6 +121,7 @@ export function ProductCard({
                 size="sm"
                 className="h-8 w-8 rounded-full bg-white hover:bg-gray-50 text-orange-600 p-0"
                 onClick={handleIncrease}
+                disabled={loading}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -125,8 +133,13 @@ export function ProductCard({
               className="w-full h-10 rounded-full"
               style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
               onClick={handleAddToCart}
+              disabled={loading}
             >
-              <Plus className="h-4 w-4" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
             </Button>
           )}
         </div>

@@ -20,6 +20,18 @@ export default function AppContent() {
     name: 'La Estrella'
   })
   const [bodegonLoaded, setBodegonLoaded] = useState(false)
+  const [cartItems, setCartItems] = useState<any[]>([])
+  
+  // Debug: Log cart items changes
+  useEffect(() => {
+    console.log('📦 AppContent cartItems updated:', cartItems)
+  }, [cartItems])
+  
+  // Callback function with logging
+  const handleCartItemsChange = (newCartItems: any[]) => {
+    console.log('🔄 AppContent receiving cart update:', newCartItems)
+    setCartItems(newCartItems)
+  }
 
   // Save and restore current view from localStorage
   useEffect(() => {
@@ -117,6 +129,7 @@ export default function AppContent() {
         return <CheckoutView 
           onBack={() => setCurrentView('inicio')} 
           selectedBodegon={selectedBodegon.name}
+          currency="$"
         />
       default:
         return <InicioView 
@@ -124,6 +137,7 @@ export default function AppContent() {
           selectedBodegon={selectedBodegon}
           onBodegonChange={handleBodegonChange}
           onNavigateToAccount={navigateToAccount}
+          onCartItemsChange={handleCartItemsChange}
         />
     }
   }

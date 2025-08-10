@@ -59,6 +59,7 @@ interface InicioViewProps {
   selectedBodegon?: BodegonPreference
   onBodegonChange?: (bodegon: BodegonPreference) => void
   onNavigateToAccount?: () => void
+  onCartItemsChange?: (cartItems: any[]) => void
 }
 
 // Los restaurantes y productos ahora se cargan de la base de datos
@@ -66,7 +67,8 @@ export function InicioView({
   onNavigateToCheckout, 
   selectedBodegon = { id: '', name: 'La Estrella' }, 
   onBodegonChange,
-  onNavigateToAccount
+  onNavigateToAccount,
+  onCartItemsChange
 }: InicioViewProps) {
   const { user } = useAuth()
   
@@ -92,6 +94,7 @@ export function InicioView({
   const [showCartDrawer, setShowCartDrawer] = useState(false)
   const [cartProducts, setCartProducts] = useState<CartProductDetails[]>([])
   const [loadingCart, setLoadingCart] = useState(false)
+  const [loadingProductId, setLoadingProductId] = useState<string | number | null>(null)
   // Estado del modal de auth eliminado - ahora navegamos a vista cuenta
 
   // Auto-slide para el carrusel
@@ -231,8 +234,15 @@ export function InicioView({
       setCartProducts([])
       setCartItems(0)
       setProductQuantities({})
+      // El useEffect de cartProducts notificará el cambio
     }
-  }, [user?.auth_user?.id])
+  }, [user?.auth_user?.id, onCartItemsChange])
+  
+  // Notificar cambios en cartProducts al componente padre
+  useEffect(() => {
+    console.log('📦 cartProducts cambió:', cartProducts)
+    onCartItemsChange?.(cartProducts)
+  }, [cartProducts, onCartItemsChange])
 
   const loadCartFromDB = async () => {
     if (!user?.auth_user?.id) return
@@ -262,6 +272,10 @@ export function InicioView({
         totalItems, 
         quantities: Object.keys(quantities).length 
       })
+      
+      // El useEffect se encargará de notificar cuando cartProducts cambie
+      console.log('📤 InicioView cartItems from service:', cartItems)
+      console.log('📤 InicioView setting cartProducts state')
     } catch (error) {
       console.error('Error cargando carrito:', error)
     } finally {
@@ -279,6 +293,9 @@ export function InicioView({
       onNavigateToAccount?.()
       return
     }
+    
+    // Establecer loading para el producto específico
+    setLoadingProductId(productId)
     
     const product = ronProducts.find(p => p.id === productId)
     if (!product) {
@@ -326,6 +343,9 @@ export function InicioView({
       console.error('💥 Error actualizando carrito:', error)
       // En caso de error, no actualizar el estado local
       // El productQuantities permanecerá igual que antes
+    } finally {
+      // Limpiar loading state
+      setLoadingProductId(null)
     }
   }
 
@@ -600,6 +620,7 @@ export function InicioView({
                   onQuantityChange={handleProductQuantityChange}
                   currency="$"
                   onClick={() => handleProductClick(product)}
+                  loading={loadingProductId === product.id}
                 />
               </div>
             ))}
@@ -639,6 +660,7 @@ export function InicioView({
         onQuantityChange={handleProductQuantityChange}
         currency="$"
         getProductImage={getProductImage}
+        loading={selectedProduct ? loadingProductId === selectedProduct.id : false}
       />
 
       {/* Bodegon Drawer */}

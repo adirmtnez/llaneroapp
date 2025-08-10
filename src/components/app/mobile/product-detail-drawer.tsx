@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Minus } from 'lucide-react'
+import { Plus, Minus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 
@@ -22,6 +22,7 @@ interface ProductDetailDrawerProps {
   onQuantityChange?: (productId: string | number, quantity: number) => void
   currency?: string
   getProductImage?: (product: any) => string
+  loading?: boolean
 }
 
 export function ProductDetailDrawer({
@@ -31,7 +32,8 @@ export function ProductDetailDrawer({
   initialQuantity = 0,
   onQuantityChange,
   currency = '$',
-  getProductImage
+  getProductImage,
+  loading = false
 }: ProductDetailDrawerProps) {
   const [quantity, setQuantity] = useState(initialQuantity)
 
@@ -133,12 +135,17 @@ export function ProductDetailDrawer({
                   size="sm"
                   className="h-10 w-10 rounded-full bg-white hover:bg-gray-50 hover:scale-110 text-orange-600 p-0 transition-all duration-150 active:scale-95"
                   onClick={handleDecrease}
+                  disabled={loading}
                 >
                   <Minus className="h-5 w-5" />
                 </Button>
                 
                 <span className="flex-1 text-center text-white font-semibold text-lg transition-all duration-200">
-                  {quantity}
+                  {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                  ) : (
+                    quantity
+                  )}
                 </span>
                 
                 <Button
@@ -146,6 +153,7 @@ export function ProductDetailDrawer({
                   size="sm"
                   className="h-10 w-10 rounded-full bg-white hover:bg-gray-50 hover:scale-110 text-orange-600 p-0 transition-all duration-150 active:scale-95"
                   onClick={handleIncrease}
+                  disabled={loading}
                 >
                   <Plus className="h-5 w-5" />
                 </Button>
@@ -158,8 +166,16 @@ export function ProductDetailDrawer({
               className="flex-1 h-12 hover:scale-105 rounded-full font-semibold text-base transition-all duration-200 active:scale-95"
               style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
               onClick={quantity > 0 ? handleIncrease : handleAddToCart}
+              disabled={loading}
             >
-              {quantity > 0 ? 'Actualizar' : 'Agregar al Carrito'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Cargando...</span>
+                </div>
+              ) : (
+                quantity > 0 ? 'Actualizar' : 'Agregar al Carrito'
+              )}
             </Button>
           </div>
         </div>
