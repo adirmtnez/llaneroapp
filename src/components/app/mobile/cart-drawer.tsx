@@ -263,13 +263,13 @@ export function CartDrawer({
                         handleApplyCoupon()
                       }
                     }}
-                    className="h-10 md:h-9 text-base md:text-sm rounded-full border-gray-200 focus:border-orange-300 focus:ring-orange-200 pl-10"
+                    className="h-11 md:h-9 text-base md:text-sm rounded-full border-gray-200 focus:border-orange-300 focus:ring-orange-200 pl-10 bg-white"
                   />
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-10 md:h-9 text-base md:text-sm rounded-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                  className="h-11 md:h-9 text-base md:text-sm rounded-full border-orange-200 text-orange-600 hover:bg-orange-50"
                   onClick={handleApplyCoupon}
                   disabled={!couponCode.trim()}
                 >
@@ -285,9 +285,7 @@ export function CartDrawer({
 
             {/* Botón ir a pagar */}
             <Button
-              size="lg"
-              className="w-full h-12 rounded-full font-semibold text-base transition-all duration-200 hover:scale-105 active:scale-95"
-              style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
+              className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
               onClick={() => {
                 onOpenChange(false) // Cerrar carrito
                 onNavigateToCheckout?.() // Navegar a checkout

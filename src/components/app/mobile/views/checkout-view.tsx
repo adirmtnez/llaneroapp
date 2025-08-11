@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Bike, Warehouse, MapPin, ChevronDown, Check, Plus, Smartphone, Landmark, Globe } from 'lucide-react'
+import { ChevronLeft, Bike, Warehouse, MapPin, ChevronDown, Check, Plus, Smartphone, Landmark, Globe, Upload, FileText, CreditCard, X, Loader2, CheckCircle, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ interface CartItem {
 
 interface CheckoutViewProps {
   onBack: () => void
+  onNavigateHome?: () => void
   selectedBodegon?: string
   currency?: string
 }
@@ -56,6 +57,14 @@ const paymentMethods = [
   }
 ]
 
+// Bancos disponibles
+const availableBanks = [
+  { id: 'banesco', name: 'Banesco', phone: '0134', info: 'C.I/R.I.F: 0' },
+  { id: 'mercantil', name: 'Mercantil', phone: '0105', info: 'Teléfono: 0' },
+  { id: 'venezuela', name: 'Banco de Venezuela', phone: '0102', info: 'C.I/R.I.F: 0' },
+  { id: 'provincial', name: 'BBVA Provincial', phone: '0108', info: 'C.I/R.I.F: 0' }
+]
+
 // Mock de direcciones guardadas del usuario
 const savedAddresses = [
   {
@@ -81,10 +90,11 @@ const savedAddresses = [
   }
 ]
 
-export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency = '$' }: CheckoutViewProps) {
+export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Estrella', currency = '$' }: CheckoutViewProps) {
   const { user } = useAuth()
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [loadingCart, setLoadingCart] = useState(true)
+  const [isViewLoaded, setIsViewLoaded] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, discount: number, type: 'percentage' | 'fixed' } | null>(null)
   const [deliveryMode, setDeliveryMode] = useState<'delivery' | 'pickup'>('delivery')
   const [selectedAddress, setSelectedAddress] = useState('')
@@ -96,6 +106,26 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
     phoneNumber: ''
   })
   const [contactDataInitialized, setContactDataInitialized] = useState(false)
+  const [showPaymentSteps, setShowPaymentSteps] = useState(false)
+  const [paymentStepsData, setPaymentStepsData] = useState({
+    selectedBank: '',
+    documentType: 'V',
+    documentNumber: '',
+    paymentReference: '',
+    issuingBank: '',
+    receipt: null as File | null
+  })
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false)
+  const [orderCreated, setOrderCreated] = useState(false)
+  const [orderNumber, setOrderNumber] = useState('')
+  
+  // Animación de entrada
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsViewLoaded(true)
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [])
   
   // Cargar items del carrito directamente desde la base de datos
   useEffect(() => {
@@ -240,6 +270,48 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
     }))
   }
 
+  // Funciones para manejar los pasos de pago
+  const handlePaymentStepsDataChange = (field: string, value: string) => {
+    setPaymentStepsData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleFileUpload = (file: File | null) => {
+    setPaymentStepsData(prev => ({
+      ...prev,
+      receipt: file
+    }))
+  }
+
+  const handleFinalSubmit = async () => {
+    setIsCreatingOrder(true)
+    
+    console.log('✅ Realizar pedido final', {
+      deliveryMode,
+      selectedAddress,
+      selectedPayment,
+      contactData,
+      paymentStepsData,
+      cartItems,
+      total
+    })
+    
+    // Simular creación del pedido (2-3 segundos)
+    await new Promise(resolve => setTimeout(resolve, 2500))
+    
+    // Generar número de pedido aleatorio
+    const orderNum = `LL${Date.now().toString().slice(-6)}`
+    setOrderNumber(orderNum)
+    
+    setIsCreatingOrder(false)
+    setShowPaymentSteps(false) // Cerrar el drawer
+    setOrderCreated(true) // Mostrar vista de éxito independiente
+    
+    // TODO: Implementar envío real del pedido a la base de datos
+  }
+
   // Manejar envío de datos de contacto
   const handleContactSubmit = async () => {
     if (!contactData.phoneNumber.trim()) {
@@ -288,9 +360,9 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
     }
 
     setShowContactDrawer(false)
+    setShowPaymentSteps(true)
     
-    // TODO: Continuar con el proceso de checkout
-    console.log('✅ Continuar con checkout completo', {
+    console.log('✅ Continuar con pasos de pago', {
       deliveryMode,
       selectedAddress,
       selectedPayment,
@@ -300,8 +372,115 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
     })
   }
 
+  // Si el pedido fue creado exitosamente, mostrar vista de éxito
+  if (orderCreated) {
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-50">
+        {/* Success View */}
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          
+          <div className="text-center max-w-sm w-full">
+            <h1 className="text-xl font-bold text-gray-900 mb-2">¡Pedido creado exitosamente!</h1>
+            <p className="text-gray-600 mb-4 text-sm">Tu pedido ha sido registrado y será procesado en breve.</p>
+            
+            <div className="bg-green-50 rounded-2xl p-4 mb-4">
+              <p className="text-xs text-green-700 font-medium mb-1">Número de pedido</p>
+              <p className="text-2xl font-bold text-green-800 mb-3">{orderNumber}</p>
+              <div className="bg-white rounded-xl p-3">
+                <p className="text-xs text-gray-600 mb-1">Confirmación por WhatsApp</p>
+                <p className="font-semibold text-gray-900 text-sm">{contactData.phonePrefix} {contactData.phoneNumber}</p>
+              </div>
+            </div>
+
+            {/* Order Status Tracking - Compacto */}
+            <div className="bg-white rounded-2xl p-4 mb-4 w-full">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Estado del pedido</h3>
+              
+              <div className="relative">
+                {/* Línea vertical conectora */}
+                <div className="absolute left-3 top-6 bottom-0 w-0.5 bg-gray-200"></div>
+                
+                <div className="space-y-3 relative">
+                  {/* Recibido - Activo */}
+                  <div className="flex items-center relative">
+                    <div className="flex items-center justify-center w-6 h-6 bg-green-500 rounded-full mr-3 relative z-10">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium text-green-700 text-sm">Recibido</p>
+                      <p className="text-xs text-green-600">Tu pedido ha sido confirmado</p>
+                    </div>
+                  </div>
+
+                  {/* Preparando - Pendiente */}
+                  <div className="flex items-center relative">
+                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded-full mr-3 relative z-10">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium text-gray-500 text-sm">Preparando</p>
+                      <p className="text-xs text-gray-400">Preparación en proceso</p>
+                    </div>
+                  </div>
+
+                  {/* Enviado - Pendiente */}
+                  <div className="flex items-center relative">
+                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded-full mr-3 relative z-10">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium text-gray-500 text-sm">Enviado</p>
+                      <p className="text-xs text-gray-400">En camino a tu dirección</p>
+                    </div>
+                  </div>
+
+                  {/* Entregado - Pendiente */}
+                  <div className="flex items-center relative">
+                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded-full mr-3 relative z-10">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-medium text-gray-500 text-sm">Entregado</p>
+                      <p className="text-xs text-gray-400">Pedido completado</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <Button
+            onClick={() => {
+              // Reset completo de todos los estados
+              setOrderCreated(false)
+              setIsCreatingOrder(false)
+              setShowPaymentSteps(false)
+              setShowContactDrawer(false)
+              setShowAddressDrawer(false)
+              
+              // Si existe onNavigateHome, usarla, sino usar onBack múltiples veces para volver al inicio
+              if (onNavigateHome) {
+                onNavigateHome()
+              } else {
+                // Fallback: usar onBack para volver al inicio
+                onBack()
+              }
+            }}
+            className="w-full max-w-sm h-11 text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+          >
+            <Home className="w-5 h-5 mr-2" />
+            Ir al inicio
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className={`flex flex-col h-screen bg-gray-50 transition-all duration-500 ease-out ${isViewLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       {/* Header */}
       <div className="bg-white border-b px-4 py-4">
         <div className="flex items-center">
@@ -311,14 +490,14 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
             onClick={onBack}
             className="h-10 w-10 p-0 hover:bg-gray-100 mr-3"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
           </Button>
           <h1 className="text-xl font-semibold text-gray-900">Checkout</h1>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 space-y-6 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Modo de entrega */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Modo de entrega</h2>
@@ -541,25 +720,23 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
               )}
             </div>
           </Card>
-        </div>
-      </div>
 
-      {/* Footer sticky con botón de continuar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-4 safe-area-pb">
-        <Button
-          size="lg"
-          className="w-full h-12 rounded-full font-semibold text-base transition-all duration-200 hover:scale-105 active:scale-95"
-          style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
-          onClick={() => {
-            setShowContactDrawer(true)
-            // Permitir que el usuario seleccione manualmente
-            if (!contactDataInitialized && user?.profile) {
-              setContactDataInitialized(true)
-            }
-          }}
-        >
-          Continuar
-        </Button>
+          {/* Botón de continuar - Inline después del resumen */}
+          <div className="mt-6">
+            <Button
+              className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+              onClick={() => {
+                setShowContactDrawer(true)
+                // Permitir que el usuario seleccione manualmente
+                if (!contactDataInitialized && user?.profile) {
+                  setContactDataInitialized(true)
+                }
+              }}
+            >
+              Continuar
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Address Drawer */}
@@ -652,7 +829,7 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
                     value={contactData.phonePrefix}
                     onValueChange={(value) => handleContactDataChange('phonePrefix', value)}
                   >
-                    <SelectTrigger className="w-24 h-11 text-base min-h-[44px]">
+                    <SelectTrigger className="w-24 h-11 text-base min-h-[44px] bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,7 +847,7 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
                     placeholder="Ingrese su número"
                     value={contactData.phoneNumber}
                     onChange={(e) => handleContactDataChange('phoneNumber', e.target.value)}
-                    className="flex-1 h-11 text-base min-h-[44px]"
+                    className="flex-1 h-11 text-base min-h-[44px] bg-white"
                     maxLength={7}
                   />
                 </div>
@@ -680,15 +857,14 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  className="flex-1 h-11 md:h-10 text-base md:text-sm"
+                  className="flex-1 h-11 md:h-10 text-base md:text-sm rounded-full border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                   onClick={() => setShowContactDrawer(false)}
                 >
                   Atrás
                 </Button>
                 
                 <Button
-                  className="flex-1 h-11 md:h-10 text-base md:text-sm font-semibold"
-                  style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
+                  className="flex-1 h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
                   onClick={handleContactSubmit}
                   disabled={!contactData.phoneNumber.trim()}
                 >
@@ -696,6 +872,244 @@ export function CheckoutView({ onBack, selectedBodegon = 'La Estrella', currency
                 </Button>
               </div>
             </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Payment Steps Drawer */}
+      <Drawer open={showPaymentSteps} onOpenChange={setShowPaymentSteps}>
+        <DrawerContent 
+          className="flex flex-col max-h-[90vh] rounded-t-[20px] focus:outline-none focus-visible:outline-none border-none ring-0" 
+          style={{ 
+            backgroundColor: '#F9FAFC',
+            border: 'none',
+            outline: 'none',
+            boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <DrawerHeader className="text-center pb-4">
+            <DrawerTitle className="text-lg font-semibold text-gray-900">
+              Realizar Pago
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">
+              Pasos para completar el pago
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {/* Content - scrollable compacto */}
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            
+            {/* Loading State - Creando pedido */}
+            {isCreatingOrder && (
+              <div className="flex flex-col items-center justify-center py-20 px-4">
+                <Loader2 className="w-12 h-12 text-orange-600 animate-spin mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Creando tu pedido</h3>
+                <p className="text-gray-600 text-sm">Procesando tu solicitud...</p>
+              </div>
+            )}
+
+
+            {/* Form State - Formulario normal */}
+            {!isCreatingOrder && (
+              <Card className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="space-y-4">
+                {/* Paso 1: Banco */}
+                <div>
+                  <div className="flex items-center mb-3">
+                    <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-white text-xs font-bold">1</span>
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900">Banco destino</h3>
+                  </div>
+                  
+                  <Select
+                    value={paymentStepsData.selectedBank}
+                    onValueChange={(value) => handlePaymentStepsDataChange('selectedBank', value)}
+                  >
+                    <SelectTrigger className="w-full h-11 text-base min-h-[44px] bg-white">
+                      <SelectValue placeholder="Selecciona banco" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableBanks.map((bank) => (
+                        <SelectItem key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Info del banco seleccionado - compacta */}
+                  {paymentStepsData.selectedBank && (
+                    <div className="mt-2 p-3 bg-red-900 text-white rounded-lg text-sm">
+                      {(() => {
+                        const selectedBankData = availableBanks.find(bank => bank.id === paymentStepsData.selectedBank)
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span>Banco:</span>
+                              <span className="font-medium">{selectedBankData?.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>C.I/R.I.F:</span>
+                              <span className="font-bold">{selectedBankData?.phone}</span>
+                            </div>
+                            <div className="text-xs text-red-200 mt-2 text-center">
+                              Usar tasa oficial BCV
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                <hr className="border-gray-200" />
+
+                {/* Paso 2: Información del pago - grid compacto */}
+                <div>
+                  <div className="flex items-center mb-3">
+                    <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-white text-xs font-bold">2</span>
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900">Datos del pago</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {/* Documento */}
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 mb-1 block">
+                        Tu documento
+                      </label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={paymentStepsData.documentType}
+                          onValueChange={(value) => handlePaymentStepsDataChange('documentType', value)}
+                        >
+                          <SelectTrigger className="w-16 h-11 text-base min-h-[44px] bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="V">V</SelectItem>
+                            <SelectItem value="E">E</SelectItem>
+                            <SelectItem value="J">J</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Input
+                          type="text"
+                          placeholder="Número"
+                          value={paymentStepsData.documentNumber}
+                          onChange={(e) => handlePaymentStepsDataChange('documentNumber', e.target.value)}
+                          className="flex-1 h-11 text-base min-h-[44px] bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Referencia */}
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 mb-1 block">
+                        Referencia (4 dígitos)
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="1234"
+                        value={paymentStepsData.paymentReference}
+                        onChange={(e) => handlePaymentStepsDataChange('paymentReference', e.target.value)}
+                        className="h-11 text-base min-h-[44px] bg-white"
+                        maxLength={4}
+                      />
+                    </div>
+
+                    {/* Banco emisor */}
+                    <div>
+                      <label className="text-xs font-medium text-gray-700 mb-1 block">
+                        Tu banco
+                      </label>
+                      <Select
+                        value={paymentStepsData.issuingBank}
+                        onValueChange={(value) => handlePaymentStepsDataChange('issuingBank', value)}
+                      >
+                        <SelectTrigger className="w-full h-11 text-base min-h-[44px] bg-white">
+                          <SelectValue placeholder="Emisor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableBanks.map((bank) => (
+                            <SelectItem key={bank.id} value={bank.name}>
+                              {bank.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200" />
+
+                {/* Paso 3: Comprobante - minimalista */}
+                <div>
+                  <div className="flex items-center mb-3">
+                    <div className="w-6 h-6 bg-orange-600 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-white text-xs font-bold">3</span>
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-900">Comprobante</h3>
+                  </div>
+                  
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                    {!paymentStepsData.receipt ? (
+                      <div className="text-center">
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => handleFileUpload(e.target.files?.[0] || null)}
+                          className="hidden"
+                          id="receipt-upload"
+                        />
+                        <label
+                          htmlFor="receipt-upload"
+                          className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors text-sm"
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Subir archivo
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2 bg-green-50 rounded-lg">
+                        <div className="flex items-center">
+                          <Check className="w-4 h-4 text-green-600 mr-2" />
+                          <span className="text-sm text-green-700 font-medium">
+                            {paymentStepsData.receipt.name.length > 20 
+                              ? paymentStepsData.receipt.name.substring(0, 20) + '...'
+                              : paymentStepsData.receipt.name
+                            }
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleFileUpload(null)}
+                          className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Botón final al final de la card */}
+                <div className="pt-2">
+                  <Button
+                    className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+                    onClick={handleFinalSubmit}
+                    disabled={!paymentStepsData.selectedBank || !paymentStepsData.documentNumber || !paymentStepsData.paymentReference || !paymentStepsData.issuingBank || !paymentStepsData.receipt}
+                  >
+                    Realizar pedido
+                  </Button>
+                </div>
+              </div>
+            </Card>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

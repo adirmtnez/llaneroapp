@@ -162,9 +162,7 @@ export function ProductDetailDrawer({
 
             {/* Botón principal a la derecha */}
             <Button
-              size="lg"
-              className="flex-1 h-12 hover:scale-105 rounded-full font-semibold text-base transition-all duration-200 active:scale-95"
-              style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
+              className="flex-1 h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
               onClick={quantity > 0 ? handleIncrease : handleAddToCart}
               disabled={loading}
             >

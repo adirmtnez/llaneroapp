@@ -128,6 +128,7 @@ export default function AppContent() {
       case 'checkout':
         return <CheckoutView 
           onBack={() => setCurrentView('inicio')} 
+          onNavigateHome={() => setCurrentView('inicio')}
           selectedBodegon={selectedBodegon.name}
           currency="$"
         />
