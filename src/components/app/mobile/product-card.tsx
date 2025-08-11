@@ -89,7 +89,7 @@ export function ProductCard({
             )}
 
             <p className="font-bold text-lg text-gray-900">
-              {currency}{price.toFixed(2)}
+              {currency}{price ? price.toFixed(2) : '0.00'}
             </p>
           </div>
         </div>

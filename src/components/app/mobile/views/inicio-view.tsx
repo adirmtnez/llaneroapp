@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ShoppingCart, MapPin } from 'lucide-react'
+import { ChevronDown, ShoppingCart, MapPin, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { ProductCard } from '../product-card'
 import { ProductDetailDrawer } from '../product-detail-drawer'
 import { BodegonDrawer } from '../bodegon-drawer'
@@ -86,6 +87,15 @@ export function InicioView({
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
   const [ronProducts, setRonProducts] = useState<any[]>([])
   const [loadingRonProducts, setLoadingRonProducts] = useState(true)
+  const [showSubcategoriesDrawer, setShowSubcategoriesDrawer] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<BodegonCategory | null>(null)
+  const [subcategories, setSubcategories] = useState<any[]>([])
+  const [loadingSubcategories, setLoadingSubcategories] = useState(false)
+  const [showingSubcategoryProducts, setShowingSubcategoryProducts] = useState(false)
+  const [selectedSubcategory, setSelectedSubcategory] = useState<any | null>(null)
+  const [subcategoryProducts, setSubcategoryProducts] = useState<any[]>([])
+  const [loadingSubcategoryProducts, setLoadingSubcategoryProducts] = useState(false)
+  const [productSearchTerm, setProductSearchTerm] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [showProductDetail, setShowProductDetail] = useState(false)
   const [bodegones, setBodegones] = useState<any[]>([])
@@ -297,9 +307,15 @@ export function InicioView({
     // Establecer loading para el producto específico
     setLoadingProductId(productId)
     
-    const product = ronProducts.find(p => p.id === productId)
+    // Buscar el producto en ambas fuentes: ronProducts y subcategoryProducts
+    let product = ronProducts.find(p => p.id === productId)
+    if (!product && subcategoryProducts.length > 0) {
+      product = subcategoryProducts.find(p => p.id === productId)
+    }
+    
     if (!product) {
       console.log('❌ Producto no encontrado:', productId)
+      setLoadingProductId(null)
       return
     }
 
@@ -405,6 +421,95 @@ export function InicioView({
     setShowBodegonDrawer(false)
   }
 
+  // Manejar click en categoría - cargar subcategorías
+  const handleCategoryClick = async (category: BodegonCategory) => {
+    setSelectedCategory(category)
+    setLoadingSubcategories(true)
+    setShowSubcategoriesDrawer(true)
+    
+    try {
+      const { data, error } = await publicSelect(
+        'bodegon_subcategories',
+        '*',
+        { parent_category: category.id, is_active: true }
+      )
+      
+      if (error) {
+        console.error('Error cargando subcategorías:', error)
+        setSubcategories([])
+      } else {
+        setSubcategories(data || [])
+      }
+    } catch (error) {
+      console.error('Error cargando subcategorías:', error)
+      setSubcategories([])
+    } finally {
+      setLoadingSubcategories(false)
+    }
+  }
+
+  // Obtener imagen para subcategorías (similar a categorías)
+  const getSubcategoryImage = (subcategory: any) => {
+    if (subcategory.image) return subcategory.image
+    if (subcategory.image_url) return subcategory.image_url
+    // Retornar null para mostrar placeholder gris
+    return null
+  }
+
+  // Manejar click en subcategoría - cargar productos dentro del mismo drawer
+  const handleSubcategoryClick = async (subcategory: any) => {
+    setSelectedSubcategory(subcategory)
+    setLoadingSubcategoryProducts(true)
+    setShowingSubcategoryProducts(true) // Cambiar el estado del drawer
+    
+    try {
+      const { data, error } = await publicSelect(
+        'bodegon_products',
+        `
+          id, name, description, price, image_gallery_urls, sku, bar_code,
+          is_active, is_discount, is_promo, discounted_price, created_date,
+          category_id, subcategory_id,
+          bodegon_categories!category_id(name), 
+          bodegon_subcategories!subcategory_id(name)
+        `,
+        { subcategory_id: subcategory.id, is_active: true }
+      )
+      
+      if (error) {
+        console.error('Error cargando productos de subcategoría:', error)
+        setSubcategoryProducts([])
+      } else {
+        console.log('🛒 Productos de subcategoría cargados:', data)
+        setSubcategoryProducts(data || [])
+      }
+    } catch (error) {
+      console.error('Error cargando productos de subcategoría:', error)
+      setSubcategoryProducts([])
+    } finally {
+      setLoadingSubcategoryProducts(false)
+    }
+  }
+
+  // Manejar navegación hacia atrás dentro del drawer
+  const handleBackToSubcategories = () => {
+    setShowingSubcategoryProducts(false)
+    setSelectedSubcategory(null)
+    setSubcategoryProducts([])
+    setProductSearchTerm('') // Limpiar filtro de búsqueda
+  }
+
+  // Filtrar productos basado en el término de búsqueda
+  const filteredSubcategoryProducts = subcategoryProducts.filter(product => 
+    product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    (product.description && product.description.toLowerCase().includes(productSearchTerm.toLowerCase())) ||
+    (product.sku && product.sku.toLowerCase().includes(productSearchTerm.toLowerCase()))
+  )
+
+  // Limpiar filtro de búsqueda
+  const clearProductSearch = () => {
+    setProductSearchTerm('')
+  }
+
   // Manejar eliminación de producto del carrito
   const handleRemoveFromCart = async (productId: string | number) => {
     if (!user?.auth_user?.id) return
@@ -448,6 +553,7 @@ export function InicioView({
       console.error('Error limpiando carrito:', error)
     }
   }
+
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 relative">
@@ -531,7 +637,10 @@ export function InicioView({
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
             {categories.map((category) => (
               <div key={category.id} className="flex-shrink-0 w-[200px]">
-                <div className="cursor-pointer hover:scale-105 transition-transform overflow-hidden rounded-[30px] h-[100px] relative">
+                <div 
+                  className="cursor-pointer overflow-hidden rounded-[30px] h-[100px] relative"
+                  onClick={() => handleCategoryClick(category)}
+                >
                   <img
                     src={getCategoryImage(category)}
                     alt={category.name}
@@ -684,6 +793,234 @@ export function InicioView({
         onNavigateToCheckout={onNavigateToCheckout}
         currency="$"
       />
+
+      {/* Subcategories/Products Drawer */}
+      <Drawer open={showSubcategoriesDrawer} onOpenChange={(open) => {
+        setShowSubcategoriesDrawer(open)
+        if (!open) {
+          // Reset state when drawer closes
+          setShowingSubcategoryProducts(false)
+          setSelectedSubcategory(null)
+          setSubcategoryProducts([])
+          setProductSearchTerm('') // Limpiar filtro de búsqueda
+        }
+      }} modal={true}>
+        <DrawerContent 
+          className="flex flex-col max-h-[85vh] rounded-t-[20px] focus:outline-none focus-visible:outline-none border-none ring-0" 
+          style={{ 
+            backgroundColor: '#F9FAFC',
+            border: 'none',
+            outline: 'none',
+            boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <DrawerHeader className="text-center pb-4">
+            <div className="flex items-center justify-center relative">
+              {/* Botón de regreso con animación */}
+              <div className={`absolute left-0 transition-all duration-300 ease-in-out ${
+                showingSubcategoryProducts 
+                  ? 'transform translate-x-0 opacity-100 scale-100' 
+                  : 'transform -translate-x-2 opacity-0 scale-95 pointer-events-none'
+              }`}>
+                <button
+                  onClick={handleBackToSubcategories}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200 active:scale-95"
+                >
+                  <ChevronDown className="w-5 h-5 text-gray-700 rotate-90 transition-transform duration-200" />
+                </button>
+              </div>
+              
+              {/* Título con animación de texto */}
+              <div className="overflow-hidden">
+                <DrawerTitle className="text-lg font-semibold text-gray-900 transition-all duration-300 ease-in-out">
+                  {showingSubcategoryProducts ? selectedSubcategory?.name : selectedCategory?.name || 'Categoría'}
+                </DrawerTitle>
+              </div>
+            </div>
+            <DrawerDescription className="sr-only">
+              {showingSubcategoryProducts 
+                ? `Productos de ${selectedSubcategory?.name}`
+                : `Lista de subcategorías de ${selectedCategory?.name}`
+              }
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {/* Input de búsqueda para productos */}
+          {showingSubcategoryProducts && (
+            <div className="px-6 pb-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={productSearchTerm}
+                  onChange={(e) => setProductSearchTerm(e.target.value)}
+                  placeholder="Buscar productos..."
+                  className="w-full pl-10 pr-10 py-3 text-base md:text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                />
+                {productSearchTerm && (
+                  <button
+                    onClick={clearProductSearch}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-gray-50 rounded-r-xl transition-colors"
+                  >
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Content - scrollable con animación contenida */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 relative">
+            {/* Vista de productos con animación fade */}
+            <div className={`transition-all duration-300 ease-in-out ${
+              showingSubcategoryProducts 
+                ? 'opacity-100 transform scale-100' 
+                : 'opacity-0 transform scale-95 absolute inset-0 pointer-events-none'
+            }`}>
+              {loadingSubcategoryProducts ? (
+                <div className="grid grid-cols-2 gap-4 pb-6">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="bg-white rounded-2xl overflow-hidden animate-pulse">
+                      <div className="p-4 space-y-3">
+                        <div className="aspect-square bg-gray-200 rounded-2xl" />
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 rounded" />
+                          <div className="h-3 bg-gray-200 rounded w-2/3" />
+                          <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        </div>
+                        <div className="h-10 bg-gray-200 rounded-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredSubcategoryProducts.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4 pb-6">
+                  {filteredSubcategoryProducts.map((product, index) => (
+                    <div 
+                      key={product.id}
+                      className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <ProductCard
+                        id={product.id}
+                        name={product.name}
+                        description={product.description || ''}
+                        price={product.price || 0}
+                        image={getProductImage(product)}
+                        initialQuantity={productQuantities[product.id] || 0}
+                        onQuantityChange={handleProductQuantityChange}
+                        currency="$"
+                        onClick={() => handleProductClick(product)}
+                        loading={loadingProductId === product.id}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 pb-6 animate-in fade-in duration-300">
+                  <div className="text-gray-500">
+                    {productSearchTerm ? (
+                      <>
+                        <p className="text-lg font-medium">No se encontraron productos</p>
+                        <p className="text-sm mt-1">No hay productos que coincidan con "{productSearchTerm}"</p>
+                        <button
+                          onClick={clearProductSearch}
+                          className="mt-3 text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-lg font-medium">No hay productos disponibles</p>
+                        <p className="text-sm mt-1">Esta subcategoría no tiene productos activos</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Vista de subcategorías con animación fade */}
+            <div className={`transition-all duration-300 ease-in-out ${
+              !showingSubcategoryProducts 
+                ? 'opacity-100 transform scale-100' 
+                : 'opacity-0 transform scale-95 absolute inset-0 pointer-events-none'
+            }`}>
+              {loadingSubcategories ? (
+                <div className="space-y-4 pb-6">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex items-center space-x-4 p-4">
+                      <div className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-2" />
+                        <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : subcategories.length > 0 ? (
+                <div className="space-y-3 pb-6">
+                  {subcategories.map((subcategory, index) => (
+                    <div 
+                      key={subcategory.id} 
+                      className="flex items-center space-x-4 p-4 bg-white rounded-xl cursor-pointer hover:bg-gray-50 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300"
+                      style={{ animationDelay: `${index * 100}ms` }}
+                      onClick={() => handleSubcategoryClick(subcategory)}
+                    >
+                      <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                        {getSubcategoryImage(subcategory) ? (
+                          <img
+                            src={getSubcategoryImage(subcategory)}
+                            alt={subcategory.name}
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            onError={(e) => {
+                              // Si falla la carga, mostrar placeholder
+                              e.currentTarget.style.display = 'none'
+                              if (e.currentTarget.nextElementSibling) {
+                                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-full h-full bg-gray-200 flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
+                            getSubcategoryImage(subcategory) ? 'hidden' : 'flex'
+                          }`}
+                        >
+                          <div className="text-gray-400 text-center">
+                            <div className="w-8 h-8 mx-auto mb-1 bg-gray-300 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-gray-500">
+                                {subcategory.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 transition-colors duration-200">
+                          {subcategory.name}
+                        </h3>
+                        {subcategory.description && (
+                          <p className="text-sm text-gray-600 mt-1 transition-colors duration-200">
+                            {subcategory.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 pb-6 animate-in fade-in duration-300">
+                  <p className="text-gray-500">No hay subcategorías disponibles</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Auth Modal eliminado - ahora navegamos a vista cuenta */}
     </div>
