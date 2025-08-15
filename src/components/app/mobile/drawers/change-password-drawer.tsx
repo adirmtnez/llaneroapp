@@ -14,7 +14,6 @@ export function ChangePasswordDrawer({ open, onOpenChange }: ChangePasswordDrawe
       open={open}
       onOpenChange={onOpenChange}
       title="Cambiar contraseña"
-      icon={<Key className="h-5 w-5 text-orange-600" />}
     >
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">

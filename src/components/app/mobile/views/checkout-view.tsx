@@ -1,14 +1,26 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, Bike, Warehouse, MapPin, ChevronDown, Check, Plus, Smartphone, Landmark, Globe, Upload, FileText, CreditCard, X, Loader2, CheckCircle, Home } from 'lucide-react'
+import { ChevronLeft, Bike, Warehouse, MapPin, ChevronDown, Check, Plus, Smartphone, Landmark, Globe, Upload, FileText, CreditCard, X, Loader2, CheckCircle, Home, Building, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { useAuth } from '@/contexts/auth-context'
-import { nuclearSelect, nuclearUpdate } from '@/utils/nuclear-client'
+import { nuclearSelect, nuclearUpdate, nuclearInsert } from '@/utils/nuclear-client'
+import { toast } from 'sonner'
+
+interface CustomerAddress {
+  id: string
+  customer_id: string
+  address_line1: string
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  is_default?: boolean | null
+  label?: string | null
+}
 
 interface CartItem {
   id: string | number
@@ -65,30 +77,21 @@ const availableBanks = [
   { id: 'provincial', name: 'BBVA Provincial', phone: '0108', info: 'C.I/R.I.F: 0' }
 ]
 
-// Mock de direcciones guardadas del usuario
-const savedAddresses = [
-  {
-    id: '1',
-    name: 'Casa',
-    address: 'Av. Principal #123, Urbanización Los Jardines',
-    city: 'Caracas',
-    isDefault: true
-  },
-  {
-    id: '2',
-    name: 'Trabajo',
-    address: 'Torre Empresarial, Piso 15, Oficina 1504',
-    city: 'Caracas',
-    isDefault: false
-  },
-  {
-    id: '3',
-    name: 'Casa de mamá',
-    address: 'Calle 42 con Av. 18, Casa #25',
-    city: 'Valencia',
-    isDefault: false
+// Helper functions for addresses
+const getTypeIcon = (label: string) => {
+  const lowerLabel = label?.toLowerCase() || ''
+  if (lowerLabel.includes('casa') || lowerLabel.includes('home')) return Home
+  if (lowerLabel.includes('trabajo') || lowerLabel.includes('work') || lowerLabel.includes('oficina')) return Building
+  return MapPin
+}
+
+const getAddressDisplay = (address: CustomerAddress) => {
+  let display = address.address_line1
+  if (address.address_line2) {
+    display += `, ${address.address_line2}`
   }
-]
+  return display
+}
 
 export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Estrella', currency = '$' }: CheckoutViewProps) {
   const { user } = useAuth()
@@ -100,6 +103,37 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   const [selectedAddress, setSelectedAddress] = useState('')
   const [selectedPayment, setSelectedPayment] = useState('pagomovil')
   const [showAddressDrawer, setShowAddressDrawer] = useState(false)
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([])
+  const [loadingAddresses, setLoadingAddresses] = useState(false)
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false)
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [addressFormData, setAddressFormData] = useState({
+    label: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: ''
+  })
+
+  // Opciones de estado y ciudades
+  const stateOptions = [
+    { value: 'Lara', label: 'Lara' },
+    { value: 'Yaracuy', label: 'Yaracuy' }
+  ]
+
+  const getCityOptions = (state: string) => {
+    if (state === 'Lara') {
+      return [
+        { value: 'Barquisimeto', label: 'Barquisimeto' },
+        { value: 'Cabudare', label: 'Cabudare' }
+      ]
+    } else if (state === 'Yaracuy') {
+      return [
+        { value: 'Yaritagua', label: 'Yaritagua' }
+      ]
+    }
+    return []
+  }
   const [showContactDrawer, setShowContactDrawer] = useState(false)
   const [contactData, setContactData] = useState({
     phonePrefix: '0414',
@@ -126,6 +160,53 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
     }, 50)
     return () => clearTimeout(timer)
   }, [])
+
+  // Cargar direcciones del usuario
+  const loadAddresses = async () => {
+    if (!user?.auth_user?.id) return
+    
+    setLoadingAddresses(true)
+    try {
+      const { data, error } = await nuclearSelect(
+        'customer_addresses',
+        '*',
+        { customer_id: user.auth_user.id }
+      )
+
+      if (error) {
+        console.error('Error loading addresses:', error)
+        return
+      }
+
+      // Ordenar con la dirección predeterminada primero
+      const sortedAddresses = (data || []).sort((a, b) => {
+        if (a.is_default && !b.is_default) return -1
+        if (!a.is_default && b.is_default) return 1
+        return 0
+      })
+
+      setAddresses(sortedAddresses)
+
+      // Si no hay dirección seleccionada, seleccionar la predeterminada
+      if (!selectedAddress && sortedAddresses.length > 0) {
+        const defaultAddress = sortedAddresses.find(addr => addr.is_default)
+        if (defaultAddress) {
+          setSelectedAddress(defaultAddress.id)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error)
+    } finally {
+      setLoadingAddresses(false)
+    }
+  }
+
+  // Cargar direcciones cuando se abra el drawer o cuando cambie el usuario
+  useEffect(() => {
+    if (user?.auth_user?.id && deliveryMode === 'delivery') {
+      loadAddresses()
+    }
+  }, [user, deliveryMode])
   
   // Cargar items del carrito directamente desde la base de datos
   useEffect(() => {
@@ -254,12 +335,91 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   
   // Obtener dirección seleccionada o default
   const currentAddress = selectedAddress 
-    ? savedAddresses.find(addr => addr.id === selectedAddress)
-    : savedAddresses.find(addr => addr.isDefault)
+    ? addresses.find(addr => addr.id === selectedAddress)
+    : addresses.find(addr => addr.is_default)
   
-  const handleSelectAddress = (address: typeof savedAddresses[0]) => {
+  const handleSelectAddress = (address: CustomerAddress) => {
     setSelectedAddress(address.id)
     setShowAddressDrawer(false)
+  }
+
+  // Abrir drawer de direcciones (cargar direcciones si no están cargadas)
+  const handleOpenAddressDrawer = () => {
+    setShowAddressDrawer(true)
+    if (addresses.length === 0) {
+      loadAddresses()
+    }
+  }
+
+  // Manejar agregar nueva dirección
+  const handleAddAddress = async () => {
+    if (!addressFormData.label || !addressFormData.address_line1 || !addressFormData.state || !addressFormData.city || !user?.auth_user?.id) return
+
+    setIsSavingAddress(true)
+    try {
+      // Si es la primera dirección, hacerla predeterminada
+      const isFirstAddress = addresses.length === 0
+
+      const newAddressData = {
+        customer_id: user.auth_user.id,
+        label: addressFormData.label,
+        address_line1: addressFormData.address_line1,
+        address_line2: addressFormData.address_line2 || null,
+        city: addressFormData.city || null,
+        state: addressFormData.state || null,
+        is_default: isFirstAddress
+      }
+
+      const { data, error } = await nuclearInsert(
+        'customer_addresses',
+        newAddressData,
+        '*'
+      )
+
+      if (error) {
+        console.error('Error adding address:', error)
+        toast.error('Error al agregar dirección')
+        return
+      }
+
+      toast.success('Dirección agregada exitosamente')
+      
+      // Recargar direcciones y seleccionar la nueva si es la primera
+      await loadAddresses()
+      if (isFirstAddress && data) {
+        setSelectedAddress(data[0].id)
+      }
+      
+      resetAddressForm()
+    } catch (error) {
+      console.error('Error adding address:', error)
+      toast.error('Error al agregar dirección')
+    } finally {
+      setIsSavingAddress(false)
+    }
+  }
+
+  const resetAddressForm = () => {
+    setAddressFormData({
+      label: '',
+      address_line1: '',
+      address_line2: '',
+      city: '',
+      state: ''
+    })
+    setShowAddAddressForm(false)
+  }
+
+  const handleOpenAddAddressForm = () => {
+    setShowAddAddressForm(true)
+  }
+
+  const handleStateChange = (newState: string) => {
+    setAddressFormData(prev => ({
+      ...prev,
+      state: newState,
+      city: '' // Limpiar ciudad cuando cambie el estado
+    }))
   }
 
   // Manejar cambios en datos de contacto
@@ -469,7 +629,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                 onBack()
               }
             }}
-            className="w-full max-w-sm h-11 text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+            className="w-full max-w-sm min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
           >
             <Home className="w-5 h-5 mr-2" />
             Ir al inicio
@@ -497,7 +657,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-8">
         {/* Modo de entrega */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Modo de entrega</h2>
@@ -574,21 +734,22 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
               <Button 
                 variant="ghost" 
                 size="sm"
+                onClick={handleOpenAddAddressForm}
                 className="text-orange-600 hover:text-orange-700 p-0"
               >
                 Agregar dirección
               </Button>
             </div>
             
-            <Card className="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setShowAddressDrawer(true)}>
+            <Card className="p-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={handleOpenAddressDrawer}>
               <div className="flex items-center justify-between min-w-0">
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <MapPin className="w-5 h-5 text-gray-600 flex-shrink-0" />
                   <div className="flex flex-col flex-1 min-w-0">
                     {currentAddress ? (
                       <>
-                        <span className="font-medium text-gray-900 truncate">{currentAddress.name}</span>
-                        <span className="text-sm text-gray-500 truncate">{currentAddress.address}</span>
+                        <span className="font-medium text-gray-900 truncate">{currentAddress.label || 'Sin nombre'}</span>
+                        <span className="text-sm text-gray-500 truncate">{getAddressDisplay(currentAddress)}{currentAddress.city ? `, ${currentAddress.city}` : ''}</span>
                       </>
                     ) : (
                       <span className="text-gray-500 truncate">Selecciona una dirección</span>
@@ -724,7 +885,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
           {/* Botón de continuar - Inline después del resumen */}
           <div className="mt-6">
             <Button
-              className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+              className="w-full min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
               onClick={() => {
                 setShowContactDrawer(true)
                 // Permitir que el usuario seleccione manualmente
@@ -742,63 +903,264 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
       {/* Address Drawer */}
       <Drawer open={showAddressDrawer} onOpenChange={setShowAddressDrawer}>
         <DrawerContent className="flex flex-col max-h-[85vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
-          <DrawerHeader className="text-left pb-4">
-            <DrawerTitle className="text-lg font-semibold text-gray-900">
-              Seleccionar dirección
-            </DrawerTitle>
+          <DrawerHeader className="pb-4">
+            <DrawerTitle className="sr-only">Seleccionar dirección</DrawerTitle>
             <DrawerDescription className="sr-only">
               Lista de direcciones guardadas del usuario
             </DrawerDescription>
+            
+            {/* Header personalizado */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAddressDrawer(false)}
+                  className="h-10 md:h-8 p-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h1 className="text-lg font-semibold text-gray-900">
+                  Seleccionar dirección
+                </h1>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenAddAddressForm}
+                className="h-10 md:h-8 p-2"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </DrawerHeader>
 
           {/* Content - scrollable */}
-          <div className="flex-1 overflow-y-auto px-6">
-            <div className="space-y-3 pb-6">
-              {savedAddresses.map((address) => (
-                <Card 
-                  key={address.id} 
-                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => handleSelectAddress(address)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
-                      <MapPin className="w-5 h-5 text-gray-600 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{address.name}</span>
-                          {address.isDefault && (
-                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                              Por defecto
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1 leading-tight">
-                          {address.address}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {address.city}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Check si está seleccionada */}
-                    {(selectedAddress === address.id || (!selectedAddress && address.isDefault)) && (
-                      <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center ml-3">
-                        <Check className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
-              
-              {/* Botón agregar nueva dirección */}
-              <Card className="p-4 cursor-pointer hover:bg-gray-50 transition-colors border-2 border-dashed border-gray-300">
-                <div className="flex items-center justify-center space-x-3 text-gray-500">
-                  <Plus className="w-5 h-5" />
-                  <span className="font-medium">Agregar nueva dirección</span>
+          <div className="flex-1 overflow-y-auto pb-8">
+            <div className="px-2">
+              {loadingAddresses ? (
+                // Loading State
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <Loader2 className="h-8 w-8 text-orange-600 animate-spin" />
+                  <p className="text-gray-600 text-sm">Cargando direcciones...</p>
                 </div>
-              </Card>
+              ) : addresses.length === 0 ? (
+                // Empty State
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                    <MapPin className="h-8 w-8 text-orange-600" />
+                  </div>
+                  
+                  <div className="text-center space-y-2">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Sin direcciones guardadas
+                    </h3>
+                    <p className="text-gray-600 text-sm max-w-xs">
+                      Agrega direcciones de entrega para hacer tus pedidos más rápido
+                    </p>
+                  </div>
+                  
+                  <Button
+                    onClick={handleOpenAddAddressForm}
+                    className="h-11 md:h-10 text-base md:text-sm font-semibold mt-4"
+                    style={{ backgroundColor: '#ea580c', color: 'white' }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar primera dirección
+                  </Button>
+                </div>
+              ) : (
+                // Lista de direcciones
+                <div className="space-y-3 pb-6">
+                  {addresses.map((address) => {
+                    const IconComponent = getTypeIcon(address.label || '')
+                    const isSelected = selectedAddress === address.id || (!selectedAddress && address.is_default)
+                    
+                    return (
+                      <Card 
+                        key={address.id} 
+                        className="p-5 cursor-pointer hover:bg-gray-50 transition-colors shadow-none border border-gray-200 mx-2 relative"
+                        onClick={() => handleSelectAddress(address)}
+                      >
+                        {/* Estrella de predeterminada en la esquina */}
+                        {address.is_default && (
+                          <div className="absolute top-3 right-3">
+                            <Star className="h-4 w-4 text-orange-600 fill-orange-600" />
+                          </div>
+                        )}
+                        
+                        {/* Check de selección en esquina inferior derecha */}
+                        {isSelected && (
+                          <div className="absolute bottom-3 right-3">
+                            <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                              <Check className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-start space-x-3">
+                          <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <IconComponent className="h-5 w-5 text-orange-600" />
+                          </div>
+                          
+                          <div className="flex-1 min-w-0 pr-8">
+                            <div className="mb-1">
+                              <h4 className="font-semibold text-gray-900 text-base">{address.label || 'Sin nombre'}</h4>
+                            </div>
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-1 leading-relaxed">
+                              {getAddressDisplay(address)}
+                            </p>
+                            <div className="space-y-0">
+                              {address.city && (
+                                <p className="text-xs text-gray-500">{address.city}</p>
+                              )}
+                              {address.state && (
+                                <p className="text-xs text-gray-500">{address.state}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  })}
+                  
+                </div>
+              )}
             </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Add Address Form Drawer */}
+      <Drawer open={showAddAddressForm} onOpenChange={setShowAddAddressForm}>
+        <DrawerContent className="max-h-[85vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="sr-only">Nueva dirección</DrawerTitle>
+            <DrawerDescription className="sr-only">
+              Completa la información de tu nueva dirección
+            </DrawerDescription>
+            
+            {/* Header personalizado */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <h1 className="text-lg font-semibold text-gray-900">
+                  Nueva dirección
+                </h1>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={resetAddressForm}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </DrawerHeader>
+
+          <div className="px-4 pb-8 space-y-3">
+            {/* Nombre de la dirección */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Nombre de la dirección
+              </label>
+              <Input
+                placeholder="Ej: Casa, Trabajo, Casa de mamá"
+                value={addressFormData.label}
+                onChange={(e) => setAddressFormData({ ...addressFormData, label: e.target.value })}
+                className="min-h-[56px] text-base bg-white"
+              />
+            </div>
+
+            {/* Dirección principal */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Dirección principal
+              </label>
+              <Input
+                placeholder="Av. Principal #123, Urbanización Los Jardines"
+                value={addressFormData.address_line1}
+                onChange={(e) => setAddressFormData({ ...addressFormData, address_line1: e.target.value })}
+                className="min-h-[56px] text-base bg-white"
+              />
+            </div>
+
+            {/* Complemento de dirección */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Complemento <span className="text-gray-400">(opcional)</span>
+              </label>
+              <Input
+                placeholder="Apartamento, piso, referencia..."
+                value={addressFormData.address_line2}
+                onChange={(e) => setAddressFormData({ ...addressFormData, address_line2: e.target.value })}
+                className="min-h-[56px] text-base bg-white"
+              />
+            </div>
+
+            {/* Estado */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Estado
+              </label>
+              <Select
+                value={addressFormData.state}
+                onValueChange={handleStateChange}
+              >
+                <SelectTrigger className="min-h-[56px] text-base bg-white">
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stateOptions.map((state) => (
+                    <SelectItem key={state.value} value={state.value}>
+                      {state.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ciudad */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Ciudad
+              </label>
+              <Select
+                value={addressFormData.city}
+                onValueChange={(value) => setAddressFormData({ ...addressFormData, city: value })}
+                disabled={!addressFormData.state}
+              >
+                <SelectTrigger className="min-h-[56px] text-base bg-white">
+                  <SelectValue placeholder={!addressFormData.state ? "Seleccionar estado primero" : "Seleccionar ciudad"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {getCityOptions(addressFormData.state).map((city) => (
+                    <SelectItem key={city.value} value={city.value}>
+                      {city.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Botón para guardar */}
+            <Button
+              onClick={handleAddAddress}
+              disabled={isSavingAddress || !addressFormData.label || !addressFormData.address_line1 || !addressFormData.state || !addressFormData.city}
+              className="w-full min-h-[56px] text-base font-semibold"
+              style={{ backgroundColor: '#ea580c', color: 'white' }}
+            >
+              {isSavingAddress ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Agregando...
+                </>
+              ) : (
+                'Agregar dirección'
+              )}
+            </Button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -829,7 +1191,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                     value={contactData.phonePrefix}
                     onValueChange={(value) => handleContactDataChange('phonePrefix', value)}
                   >
-                    <SelectTrigger className="w-24 h-11 text-base min-h-[44px] bg-white">
+                    <SelectTrigger className="w-24 min-h-[56px] text-base bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -847,7 +1209,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                     placeholder="Ingrese su número"
                     value={contactData.phoneNumber}
                     onChange={(e) => handleContactDataChange('phoneNumber', e.target.value)}
-                    className="flex-1 h-11 text-base min-h-[44px] bg-white"
+                    className="flex-1 min-h-[56px] text-base bg-white"
                     maxLength={7}
                   />
                 </div>
@@ -857,14 +1219,14 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  className="flex-1 h-11 md:h-10 text-base md:text-sm rounded-full border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 min-h-[56px] text-base rounded-full border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                   onClick={() => setShowContactDrawer(false)}
                 >
                   Atrás
                 </Button>
                 
                 <Button
-                  className="flex-1 h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+                  className="flex-1 min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
                   onClick={handleContactSubmit}
                   disabled={!contactData.phoneNumber.trim()}
                 >
@@ -926,7 +1288,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                     value={paymentStepsData.selectedBank}
                     onValueChange={(value) => handlePaymentStepsDataChange('selectedBank', value)}
                   >
-                    <SelectTrigger className="w-full h-11 text-base min-h-[44px] bg-white">
+                    <SelectTrigger className="w-full min-h-[56px] text-base bg-white">
                       <SelectValue placeholder="Selecciona banco" />
                     </SelectTrigger>
                     <SelectContent>
@@ -985,7 +1347,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                           value={paymentStepsData.documentType}
                           onValueChange={(value) => handlePaymentStepsDataChange('documentType', value)}
                         >
-                          <SelectTrigger className="w-16 h-11 text-base min-h-[44px] bg-white">
+                          <SelectTrigger className="w-16 min-h-[56px] text-base bg-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1000,7 +1362,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                           placeholder="Número"
                           value={paymentStepsData.documentNumber}
                           onChange={(e) => handlePaymentStepsDataChange('documentNumber', e.target.value)}
-                          className="flex-1 h-11 text-base min-h-[44px] bg-white"
+                          className="flex-1 min-h-[56px] text-base bg-white"
                         />
                       </div>
                     </div>
@@ -1015,7 +1377,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                         placeholder="1234"
                         value={paymentStepsData.paymentReference}
                         onChange={(e) => handlePaymentStepsDataChange('paymentReference', e.target.value)}
-                        className="h-11 text-base min-h-[44px] bg-white"
+                        className="min-h-[56px] text-base bg-white"
                         maxLength={4}
                       />
                     </div>
@@ -1029,7 +1391,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                         value={paymentStepsData.issuingBank}
                         onValueChange={(value) => handlePaymentStepsDataChange('issuingBank', value)}
                       >
-                        <SelectTrigger className="w-full h-11 text-base min-h-[44px] bg-white">
+                        <SelectTrigger className="w-full min-h-[56px] text-base bg-white">
                           <SelectValue placeholder="Emisor" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1100,7 +1462,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
                 {/* Botón final al final de la card */}
                 <div className="pt-2">
                   <Button
-                    className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+                    className="w-full min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
                     onClick={handleFinalSubmit}
                     disabled={!paymentStepsData.selectedBank || !paymentStepsData.documentNumber || !paymentStepsData.paymentReference || !paymentStepsData.issuingBank || !paymentStepsData.receipt}
                   >

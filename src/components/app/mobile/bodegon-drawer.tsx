@@ -1,6 +1,6 @@
 'use client'
 
-import { MapPin, Check } from 'lucide-react'
+import { MapPin, Check, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 
@@ -24,7 +24,17 @@ export function BodegonDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="flex flex-col max-h-[70vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
-        <DrawerHeader className="text-left pb-4">
+        {/* Botón de cerrar */}
+        <div className="absolute top-4 left-4 z-10">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        <DrawerHeader className="text-left pb-4 pt-12">
           <DrawerTitle className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
             <MapPin className="h-5 w-5 text-orange-600" />
             <span>Seleccionar Bodegón</span>
@@ -35,7 +45,7 @@ export function BodegonDrawer({
         </DrawerHeader>
 
         {/* Content - scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-8">
           {loadingBodegones ? (
             <div className="space-y-3">
               {[1,2,3,4,5].map((i) => (

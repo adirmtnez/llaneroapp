@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Minus, Loader2 } from 'lucide-react'
+import { Plus, Minus, Loader2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 
@@ -79,7 +79,17 @@ export function ProductDetailDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="flex flex-col max-h-[90vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
-        <DrawerHeader className="text-left pb-4">
+        {/* Botón de cerrar */}
+        <div className="absolute top-4 left-4 z-10">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        <DrawerHeader className="text-left pb-4 pt-12">
           <DrawerTitle className="sr-only">{product.name}</DrawerTitle>
           <DrawerDescription className="sr-only">
             Detalles del producto {product.name}
@@ -87,7 +97,7 @@ export function ProductDetailDrawer({
         </DrawerHeader>
 
         {/* Content - scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-8">
           <div className="space-y-6">
             {/* Imagen del producto */}
             <div className="aspect-square bg-gray-100 rounded-3xl overflow-hidden w-64 mx-auto">
@@ -162,7 +172,7 @@ export function ProductDetailDrawer({
 
             {/* Botón principal a la derecha */}
             <Button
-              className="flex-1 h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+              className="flex-1 min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
               onClick={quantity > 0 ? handleIncrease : handleAddToCart}
               disabled={loading}
             >

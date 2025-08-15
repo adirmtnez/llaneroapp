@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ShoppingCart, Plus, Minus, Trash2, Tag, BadgePercent } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Trash2, Tag, BadgePercent, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -86,7 +86,17 @@ export function CartDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="flex flex-col max-h-[85vh] rounded-t-[20px]" style={{ backgroundColor: '#F9FAFC' }}>
-        <DrawerHeader className="text-left pb-4">
+        {/* Botón de cerrar */}
+        <div className="absolute top-4 left-4 z-10">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        <DrawerHeader className="text-left pb-4 pt-12">
           <div className="flex items-center justify-between">
             <DrawerTitle className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
               <ShoppingCart className="h-5 w-5 text-orange-600" />
@@ -110,7 +120,7 @@ export function CartDrawer({
         </DrawerHeader>
 
         {/* Content - scrollable */}
-        <div className="flex-1 overflow-y-auto px-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-8">
           {cartItems.length > 0 ? (
             <div className="space-y-4 pb-6">
               {cartItems.map((item) => (
@@ -263,13 +273,13 @@ export function CartDrawer({
                         handleApplyCoupon()
                       }
                     }}
-                    className="h-11 md:h-9 text-base md:text-sm rounded-full border-gray-200 focus:border-orange-300 focus:ring-orange-200 pl-10 bg-white"
+                    className="min-h-[56px] text-base rounded-full border-gray-200 focus:border-orange-300 focus:ring-orange-200 pl-10 bg-white"
                   />
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-11 md:h-9 text-base md:text-sm rounded-full border-orange-200 text-orange-600 hover:bg-orange-50"
+                  className="min-h-[56px] text-base rounded-full border-orange-200 text-orange-600 hover:bg-orange-50"
                   onClick={handleApplyCoupon}
                   disabled={!couponCode.trim()}
                 >
@@ -285,7 +295,7 @@ export function CartDrawer({
 
             {/* Botón ir a pagar */}
             <Button
-              className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
+              className="w-full min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-full font-semibold transition-colors"
               onClick={() => {
                 onOpenChange(false) // Cerrar carrito
                 onNavigateToCheckout?.() // Navegar a checkout

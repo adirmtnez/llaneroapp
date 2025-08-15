@@ -6,6 +6,7 @@ import {
   LogOut,
   User,
   Shield,
+  Smartphone,
 } from "lucide-react"
 
 import {
@@ -46,6 +47,10 @@ export function NavUser() {
       // Aún si hay error, redirigir para evitar estado inconsistente  
       router.push('/auth')
     }
+  }
+
+  const handleGoToApp = () => {
+    router.push('/app')
   }
 
   const getInitials = (name: string) => {
@@ -137,6 +142,10 @@ export function NavUser() {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleGoToApp}>
+              <Smartphone />
+              Ir a la app
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               Cerrar Sesión

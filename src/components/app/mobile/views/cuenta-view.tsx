@@ -170,7 +170,7 @@ export function CuentaView() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-8">
       {/* Header con perfil de usuario */}
       {user && (
         <div className="p-6">
@@ -273,7 +273,7 @@ export function CuentaView() {
                   Accede a tu cuenta para gestionar tus pedidos, direcciones y más
                 </p>
                 <Button
-                  className="w-full h-12 rounded-full font-semibold text-base"
+                  className="w-full min-h-[56px] rounded-full font-semibold text-base"
                   style={{ backgroundColor: '#F5E9E3', color: '#ea580c' }}
                   onClick={() => handleMenuAction('login')}
                 >

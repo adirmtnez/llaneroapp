@@ -54,7 +54,7 @@ export function MenuDrawer({
         </DrawerHeader>
 
         {/* Content - scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto pb-8">
           {children}
         </div>
       </DrawerContent>

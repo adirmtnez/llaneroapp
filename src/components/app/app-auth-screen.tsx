@@ -104,7 +104,7 @@ export default function AppAuthScreen() {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
-                    className="h-11 md:h-10 text-base md:text-sm"
+                    className="min-h-[56px] text-base"
                   />
                 </div>
               )}
@@ -118,7 +118,7 @@ export default function AppAuthScreen() {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  className="h-11 md:h-10 text-base md:text-sm"
+                  className="min-h-[56px] text-base"
                 />
               </div>
 
@@ -132,7 +132,7 @@ export default function AppAuthScreen() {
                   onChange={handleInputChange}
                   required
                   minLength={6}
-                  className="h-11 md:h-10 text-base md:text-sm pr-10"
+                  className="min-h-[56px] text-base pr-10"
                 />
                 <button
                   type="button"
@@ -151,7 +151,7 @@ export default function AppAuthScreen() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 md:h-10 text-base md:text-sm font-semibold"
+                className="w-full min-h-[56px] text-base font-semibold"
               >
                 {loading ? 'Cargando...' : (mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}
               </Button>

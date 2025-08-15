@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ShoppingCart, MapPin, Search, X } from 'lucide-react'
+import { ChevronDown, ShoppingCart, MapPin, Search, X, ArrowLeft as ArrowLeftIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -9,9 +9,11 @@ import { ProductCard } from '../product-card'
 import { ProductDetailDrawer } from '../product-detail-drawer'
 import { BodegonDrawer } from '../bodegon-drawer'
 import { CartDrawer } from '../cart-drawer'
+import { RestauranteDrawer } from '../restaurante-drawer'
 // AuthModal eliminado - ahora navegamos a vista cuenta
 import { nuclearSelect, publicSelect } from '@/utils/nuclear-client'
 import type { BodegonCategory } from '@/types/bodegons'
+import type { Restaurant } from '@/types/restaurants'
 import { 
   loadUserCart, 
   addToCart, 
@@ -83,10 +85,28 @@ export function InicioView({
   const [productQuantities, setProductQuantities] = useState<Record<string | number, number>>({})
   const [categories, setCategories] = useState<BodegonCategory[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
-  const [restaurants, setRestaurants] = useState<any[]>([])
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loadingRestaurants, setLoadingRestaurants] = useState(true)
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null)
+  const [showRestaurantDrawer, setShowRestaurantDrawer] = useState(false)
+  // Estados para las 3 secciones de productos
+  const [snacksProducts, setSnacksProducts] = useState<any[]>([])
+  const [loadingSnacksProducts, setLoadingSnacksProducts] = useState(true)
+  const [loadingMoreSnacks, setLoadingMoreSnacks] = useState(false)
+  const [snacksPage, setSnacksPage] = useState(1)
+  const [hasMoreSnacks, setHasMoreSnacks] = useState(true)
+  
   const [ronProducts, setRonProducts] = useState<any[]>([])
   const [loadingRonProducts, setLoadingRonProducts] = useState(true)
+  const [loadingMoreRon, setLoadingMoreRon] = useState(false)
+  const [ronPage, setRonPage] = useState(1)
+  const [hasMoreRon, setHasMoreRon] = useState(true)
+  
+  const [mercadoProducts, setMercadoProducts] = useState<any[]>([])
+  const [loadingMercadoProducts, setLoadingMercadoProducts] = useState(true)
+  const [loadingMoreMercado, setLoadingMoreMercado] = useState(false)
+  const [mercadoPage, setMercadoPage] = useState(1)
+  const [hasMoreMercado, setHasMoreMercado] = useState(true)
   const [showSubcategoriesDrawer, setShowSubcategoriesDrawer] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<BodegonCategory | null>(null)
   const [subcategories, setSubcategories] = useState<any[]>([])
@@ -167,47 +187,377 @@ export function InicioView({
     loadRestaurants()
   }, [])
 
-  // Cargar productos de Ron - usar consulta pública
-  useEffect(() => {
-    const loadRonProducts = async () => {
-      try {
-        // Primero buscar la subcategoría "Ron"
-        const { data: subcategories, error: subError } = await publicSelect(
-          'bodegon_subcategories',
-          '*',
-          { name: 'Ron', is_active: true }
-        )
+  // Función para randomizar array
+  const shuffleArray = (array: any[]) => {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+  }
+
+  // Función para obtener productos únicos sin duplicados
+  const getUniqueProducts = (products: any[]) => {
+    const seen = new Set()
+    return products.filter(product => {
+      if (seen.has(product.id)) {
+        return false
+      }
+      seen.add(product.id)
+      return true
+    })
+  }
+
+  // Función optimizada para cargar productos de una subcategoría
+  const loadProductsBySubcategory = async (subcategoryName: string, page: number = 1, limit: number = 20) => {
+    try {
+      // Buscar la subcategoría por nombre
+      const { data: subcategories, error: subError } = await publicSelect(
+        'bodegon_subcategories',
+        '*',
+        { name: subcategoryName, is_active: true }
+      )
+      
+      if (subError || !subcategories || subcategories.length === 0) {
+        console.error(`Error o subcategoría ${subcategoryName} no encontrada:`, subError)
+        return { products: [], hasMore: false, total: 0 }
+      }
+
+      const subcategoryId = subcategories[0].id
+
+      // Solo cargar los productos que necesitamos directamente
+      const { data: products, error: prodError } = await publicSelect(
+        'bodegon_products',
+        '*',
+        { subcategory_id: subcategoryId, is_active: true }
+      )
+      
+      if (prodError) {
+        console.error(`Error cargando productos de ${subcategoryName}:`, prodError)
+        return { products: [], hasMore: false, total: 0 }
+      }
+      
+      const allProducts = products || []
+      
+      // Para simular scroll infinito pero con productos randomizados, 
+      // vamos a randomizar solo los primeros productos que necesitamos
+      if (page === 1) {
+        // Primera carga: randomizar y tomar los primeros 20
+        const shuffled = shuffleArray([...allProducts])
+        const paginatedProducts = shuffled.slice(0, limit)
+        const hasMore = allProducts.length > limit
         
-        if (subError || !subcategories || subcategories.length === 0) {
-          console.error('Error o subcategoría Ron no encontrada:', subError)
-          setLoadingRonProducts(false)
-          return
+        return { 
+          products: paginatedProducts, 
+          hasMore, 
+          total: allProducts.length 
         }
+      } else {
+        // Páginas siguientes: tomar productos secuencialmente para evitar duplicados
+        const offset = (page - 1) * limit
+        const paginatedProducts = allProducts.slice(offset, offset + limit)
+        const hasMore = offset + limit < allProducts.length
+        
+        return { 
+          products: paginatedProducts, 
+          hasMore, 
+          total: allProducts.length 
+        }
+      }
+    } catch (error) {
+      console.error(`Error cargando productos de ${subcategoryName}:`, error)
+      return { products: [], hasMore: false, total: 0 }
+    }
+  }
 
-        const ronSubcategoryId = subcategories[0].id
+  // Función optimizada para cargar productos de una categoría
+  const loadProductsByCategory = async (categoryName: string, page: number = 1, limit: number = 20) => {
+    try {
+      // Buscar la categoría por nombre
+      const { data: categories, error: catError } = await publicSelect(
+        'bodegon_categories',
+        '*',
+        { name: categoryName, is_active: true }
+      )
+      
+      if (catError || !categories || categories.length === 0) {
+        console.error(`Error o categoría ${categoryName} no encontrada:`, catError)
+        return { products: [], hasMore: false, total: 0 }
+      }
 
-        // Buscar productos de la subcategoría Ron
+      const categoryId = categories[0].id
+
+      // Buscar todas las subcategorías de esta categoría
+      const { data: subcategories, error: subError } = await publicSelect(
+        'bodegon_subcategories',
+        '*',
+        { parent_category: categoryId, is_active: true }
+      )
+
+      if (subError) {
+        console.error(`Error cargando subcategorías de ${categoryName}:`, subError)
+        return { products: [], hasMore: false, total: 0 }
+      }
+
+      // Optimización: Usar Promise.all para cargar productos en paralelo
+      let allProducts: any[] = []
+
+      if (!subcategories || subcategories.length === 0) {
+        // No hay subcategorías, buscar productos directamente por categoría
+        console.log(`No hay subcategorías para ${categoryName}, buscando productos directamente por categoría`)
         const { data: products, error: prodError } = await publicSelect(
           'bodegon_products',
-          '*, bodegon_subcategories(name)',
-          { subcategory_id: ronSubcategoryId, is_active: true }
+          '*',
+          { category_id: categoryId, is_active: true }
         )
         
         if (prodError) {
-          console.error('Error cargando productos de Ron:', prodError)
-          return
+          console.error(`Error cargando productos de categoría ${categoryName}:`, prodError)
+          return { products: [], hasMore: false, total: 0 }
         }
         
-        setRonProducts(products || [])
-      } catch (error) {
-        console.error('Error cargando productos de Ron:', error)
-      } finally {
-        setLoadingRonProducts(false)
+        allProducts = products || []
+      } else {
+        // Cargar productos de todas las subcategorías secuencialmente para evitar errores
+        const subcategoryIds = subcategories.map(sub => sub.id)
+        
+        for (const subcategoryId of subcategoryIds) {
+          try {
+            const { data: products, error: prodError } = await publicSelect(
+              'bodegon_products',
+              '*',
+              { subcategory_id: subcategoryId, is_active: true }
+            )
+            
+            if (prodError) {
+              console.error(`Error cargando productos de subcategoría ${subcategoryId}:`, prodError)
+              continue
+            }
+            
+            if (products && products.length > 0) {
+              allProducts = [...allProducts, ...products]
+            }
+          } catch (error) {
+            console.error(`Error en consulta de subcategoría ${subcategoryId}:`, error)
+            continue
+          }
+        }
+        
+        // Eliminar productos duplicados
+        allProducts = getUniqueProducts(allProducts)
       }
+      
+      console.log(`✅ Productos encontrados para categoría ${categoryName}:`, allProducts.length)
+      
+      // Optimización de paginación basada en la página
+      if (page === 1) {
+        // Primera carga: randomizar y mostrar los primeros 20
+        const shuffled = shuffleArray([...allProducts])
+        const paginatedProducts = shuffled.slice(0, limit)
+        const hasMore = allProducts.length > limit
+        
+        return { 
+          products: paginatedProducts, 
+          hasMore, 
+          total: allProducts.length 
+        }
+      } else {
+        // Páginas siguientes: secuencial para evitar duplicados
+        const offset = (page - 1) * limit
+        const paginatedProducts = allProducts.slice(offset, offset + limit)
+        const hasMore = offset + limit < allProducts.length
+        
+        return { 
+          products: paginatedProducts, 
+          hasMore, 
+          total: allProducts.length 
+        }
+      }
+    } catch (error) {
+      console.error(`Error cargando productos de categoría ${categoryName}:`, error)
+      return { products: [], hasMore: false, total: 0 }
+    }
+  }
+
+  // Cargar productos de Snacks con paginación
+  const loadSnacksProducts = async (page: number = 1, append: boolean = false) => {
+    if (page === 1) {
+      setLoadingSnacksProducts(true)
+    } else {
+      setLoadingMoreSnacks(true)
     }
 
-    loadRonProducts()
+    try {
+      const { products, hasMore } = await loadProductsBySubcategory('Snacks', page, page === 1 ? 10 : 20)
+      
+      if (append) {
+        setSnacksProducts(prev => [...prev, ...products])
+      } else {
+        setSnacksProducts(products)
+      }
+      
+      setHasMoreSnacks(hasMore)
+      setSnacksPage(page)
+    } catch (error) {
+      console.error('Error cargando productos de snacks:', error)
+    } finally {
+      if (page === 1) {
+        setLoadingSnacksProducts(false)
+      } else {
+        setLoadingMoreSnacks(false)
+      }
+    }
+  }
+
+  // Cargar productos de Ron con paginación
+  const loadRonProducts = async (page: number = 1, append: boolean = false) => {
+    if (page === 1) {
+      setLoadingRonProducts(true)
+    } else {
+      setLoadingMoreRon(true)
+    }
+
+    try {
+      const { products, hasMore } = await loadProductsBySubcategory('Ron', page, page === 1 ? 10 : 20)
+      
+      if (append) {
+        setRonProducts(prev => [...prev, ...products])
+      } else {
+        setRonProducts(products)
+      }
+      
+      setHasMoreRon(hasMore)
+      setRonPage(page)
+    } catch (error) {
+      console.error('Error cargando productos de ron:', error)
+    } finally {
+      if (page === 1) {
+        setLoadingRonProducts(false)
+      } else {
+        setLoadingMoreRon(false)
+      }
+    }
+  }
+
+  // Cargar productos de Mercado con paginación
+  const loadMercadoProducts = async (page: number = 1, append: boolean = false) => {
+    if (page === 1) {
+      setLoadingMercadoProducts(true)
+    } else {
+      setLoadingMoreMercado(true)
+    }
+
+    try {
+      const result = await loadProductsByCategory('Mercado', page, page === 1 ? 10 : 20)
+      
+      if (result && result.products) {
+        if (append) {
+          setMercadoProducts(prev => [...prev, ...result.products])
+        } else {
+          setMercadoProducts(result.products)
+        }
+        
+        setHasMoreMercado(result.hasMore)
+        setMercadoPage(page)
+      } else {
+        console.error('No se recibieron datos válidos para mercado')
+        if (!append) {
+          setMercadoProducts([])
+          setHasMoreMercado(false)
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando productos de mercado:', error)
+      if (!append) {
+        setMercadoProducts([])
+        setHasMoreMercado(false)
+      }
+    } finally {
+      if (page === 1) {
+        setLoadingMercadoProducts(false)
+      } else {
+        setLoadingMoreMercado(false)
+      }
+    }
+  }
+
+  // Cargar productos iniciales de manera escalonada para mejor performance
+  useEffect(() => {
+    // Cargar ron primero (generalmente menos productos)
+    loadRonProducts(1, false)
+    
+    // Cargar snacks después de un pequeño delay
+    const snacksTimer = setTimeout(() => {
+      loadSnacksProducts(1, false)
+    }, 100)
+    
+    // Cargar mercado al final (generalmente más productos)
+    const mercadoTimer = setTimeout(() => {
+      loadMercadoProducts(1, false)
+    }, 200)
+
+    return () => {
+      clearTimeout(snacksTimer)
+      clearTimeout(mercadoTimer)
+    }
   }, [])
+
+  // Funciones para cargar más productos al scroll
+  const loadMoreSnacksProducts = () => {
+    if (hasMoreSnacks && !loadingMoreSnacks) {
+      loadSnacksProducts(snacksPage + 1, true)
+    }
+  }
+
+  const loadMoreRonProducts = () => {
+    if (hasMoreRon && !loadingMoreRon) {
+      loadRonProducts(ronPage + 1, true)
+    }
+  }
+
+  const loadMoreMercadoProducts = () => {
+    if (hasMoreMercado && !loadingMoreMercado) {
+      loadMercadoProducts(mercadoPage + 1, true)
+    }
+  }
+
+  // Hook para detectar scroll al final de cada sección
+  const useScrollToLoad = (callback: () => void, enabled: boolean) => {
+    useEffect(() => {
+      if (!enabled) return
+
+      const handleScroll = (event: Event) => {
+        const container = event.target as HTMLElement
+        if (!container) return
+
+        const { scrollLeft, scrollWidth, clientWidth } = container
+        const threshold = 100 // Pixels before end to trigger load
+
+        if (scrollLeft + clientWidth >= scrollWidth - threshold) {
+          callback()
+        }
+      }
+
+      // Encontrar todos los contenedores de scroll horizontal
+      const scrollContainers = document.querySelectorAll('.overflow-x-auto')
+      
+      scrollContainers.forEach(container => {
+        container.addEventListener('scroll', handleScroll, { passive: true })
+      })
+
+      return () => {
+        scrollContainers.forEach(container => {
+          container.removeEventListener('scroll', handleScroll)
+        })
+      }
+    }, [callback, enabled])
+  }
+
+  // Activar scroll listeners para cada sección
+  useScrollToLoad(loadMoreSnacksProducts, hasMoreSnacks && !loadingMoreSnacks)
+  useScrollToLoad(loadMoreRonProducts, hasMoreRon && !loadingMoreRon)
+  useScrollToLoad(loadMoreMercadoProducts, hasMoreMercado && !loadingMoreMercado)
 
   // Cargar bodegones - usar consulta pública
   useEffect(() => {
@@ -381,13 +731,19 @@ export function InicioView({
   }
 
   // Obtener logo de restaurante
-  const getRestaurantLogo = (restaurant: any) => {
+  const getRestaurantLogo = (restaurant: Restaurant) => {
     if (restaurant.logo_url) return restaurant.logo_url
     
     console.log('Restaurante sin logo:', restaurant.name, restaurant)
     
     // Fallback a una imagen por defecto
     return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=200&h=200&fit=crop&crop=center'
+  }
+
+  // Manejar click en restaurante - abrir drawer
+  const handleRestaurantClick = (restaurant: Restaurant) => {
+    setSelectedRestaurant(restaurant)
+    setShowRestaurantDrawer(true)
   }
 
   // Obtener imagen de producto
@@ -556,7 +912,7 @@ export function InicioView({
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 relative">
+    <div className="flex flex-col min-h-screen bg-gray-50 relative pb-8">
       {/* Header simplificado */}
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
@@ -627,16 +983,23 @@ export function InicioView({
         <h2 className="text-lg font-semibold text-gray-900 px-4 mb-3">Categorías</h2>
         {loadingCategories ? (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {[1,2,3,4].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[200px]">
-                <div className="h-[100px] bg-gray-200 rounded-[30px] animate-pulse" />
+            {[1,2,3,4,5].map((i) => (
+              <div key={`categories-skeleton-${i}`} className="flex-shrink-0 w-[200px]">
+                <div className="h-[100px] bg-gradient-to-br from-gray-200 to-gray-300 rounded-[30px] animate-pulse relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                       style={{ animation: 'shimmer 2s infinite' }} />
+                </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {categories.map((category) => (
-              <div key={category.id} className="flex-shrink-0 w-[200px]">
+            {categories.map((category, index) => (
+              <div 
+                key={category.id} 
+                className="flex-shrink-0 w-[200px] animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
                 <div 
                   className="cursor-pointer overflow-hidden rounded-[30px] h-[100px] relative"
                   onClick={() => handleCategoryClick(category)}
@@ -662,22 +1025,30 @@ export function InicioView({
         <h2 className="text-lg font-semibold text-gray-900 px-4 mb-3">Restaurantes</h2>
         {loadingRestaurants ? (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {[1,2,3,4,5,6].map((i) => (
-              <div key={i} className="flex-shrink-0 text-center">
-                <div className="w-20 h-20 bg-gray-200 rounded-full animate-pulse mx-auto mb-2" />
-                <div className="w-16 h-3 bg-gray-200 rounded animate-pulse mx-auto" />
+            {[1,2,3,4,5,6,7,8].map((i) => (
+              <div key={`restaurants-skeleton-${i}`} className="flex-shrink-0 text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full animate-pulse mx-auto mb-2 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                       style={{ animation: 'shimmer 2s infinite' }} />
+                </div>
+                <div className="w-16 h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse mx-auto" />
               </div>
             ))}
           </div>
         ) : (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {restaurants.map((restaurant) => (
-              <div key={restaurant.id} className="flex-shrink-0 text-center">
+            {restaurants.map((restaurant, index) => (
+              <div 
+                key={restaurant.id} 
+                className="flex-shrink-0 text-center animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
                 <div 
                   className="w-20 h-20 rounded-full shadow-md mx-auto mb-2 cursor-pointer hover:shadow-lg transition-shadow bg-cover bg-center"
                   style={{
                     backgroundImage: `url(${getRestaurantLogo(restaurant)})`
                   }}
+                  onClick={() => handleRestaurantClick(restaurant)}
                 />
                 <span className="text-xs text-gray-700 font-medium max-w-[80px] block truncate">
                   {restaurant.name}
@@ -688,37 +1059,46 @@ export function InicioView({
         )}
       </div>
 
-      {/* Sección de Rones */}
-      <div className="mt-6 pb-32">
-        <div className="flex items-center justify-between px-4 mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">Rones</h2>
-          <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-            Ver todos
-          </Button>
+      {/* Sección 1: Snacks */}
+      <div className="mt-6">
+        <div className="px-4 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">Snacks</h2>
         </div>
         
-        {loadingRonProducts ? (
+        {loadingSnacksProducts ? (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {[1,2,3,4].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[180px]">
-                <div className="bg-white rounded-2xl overflow-hidden">
+            {[1,2,3,4,5,6].map((i) => (
+              <div key={`snacks-skeleton-${i}`} className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
                   <div className="p-4 space-y-3">
-                    <div className="aspect-square bg-gray-200 rounded-2xl animate-pulse" />
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                      <div className="h-3 bg-gray-200 rounded w-3/4 animate-pulse" />
-                      <div className="h-5 bg-gray-200 rounded w-1/2 animate-pulse" />
+                    {/* Imagen skeleton mejorada */}
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
                     </div>
-                    <div className="h-10 bg-gray-200 rounded-full animate-pulse" />
+                    
+                    {/* Content skeleton mejorado */}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        ) : ronProducts.length > 0 ? (
+        ) : snacksProducts.length > 0 ? (
           <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
-            {ronProducts.map((product) => (
-              <div key={product.id} className="flex-shrink-0 w-[180px]">
+            {snacksProducts.map((product, index) => (
+              <div 
+                key={`snacks-${product.id}-${index}`} 
+                className="flex-shrink-0 w-[180px] animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
                 <ProductCard
                   id={product.id}
                   name={product.name}
@@ -733,11 +1113,205 @@ export function InicioView({
                 />
               </div>
             ))}
+            
+            {/* Loading más productos */}
+            {loadingMoreSnacks && (
+              <div className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 space-y-3">
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-4">
+            <div className="text-center py-8 text-gray-500">
+              <p>No hay snacks disponibles</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sección 2: Rones */}
+      <div className="mt-6">
+        <div className="px-4 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">Rones</h2>
+        </div>
+        
+        {loadingRonProducts ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {[1,2,3,4,5,6].map((i) => (
+              <div key={`ron-skeleton-${i}`} className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 space-y-3">
+                    {/* Imagen skeleton mejorada */}
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
+                    </div>
+                    
+                    {/* Content skeleton mejorado */}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : ronProducts.length > 0 ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {ronProducts.map((product, index) => (
+              <div 
+                key={`ron-${product.id}-${index}`} 
+                className="flex-shrink-0 w-[180px] animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  description={product.description || `${product.size || ''} ${product.volume || ''}`.trim()}
+                  price={product.price || 0}
+                  image={getProductImage(product)}
+                  initialQuantity={productQuantities[product.id] || 0}
+                  onQuantityChange={handleProductQuantityChange}
+                  currency="$"
+                  onClick={() => handleProductClick(product)}
+                  loading={loadingProductId === product.id}
+                />
+              </div>
+            ))}
+            
+            {/* Loading más productos */}
+            {loadingMoreRon && (
+              <div className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 space-y-3">
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="px-4">
             <div className="text-center py-8 text-gray-500">
               <p>No hay productos de ron disponibles</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sección 3: Mercado */}
+      <div className="mt-6 pb-32">
+        <div className="px-4 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">Mercado</h2>
+        </div>
+        
+        {loadingMercadoProducts ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {[1,2,3,4,5,6].map((i) => (
+              <div key={`mercado-skeleton-${i}`} className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 space-y-3">
+                    {/* Imagen skeleton mejorada */}
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
+                    </div>
+                    
+                    {/* Content skeleton mejorado */}
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : mercadoProducts.length > 0 ? (
+          <div className="flex space-x-4 px-4 overflow-x-auto scroll-bounce">
+            {mercadoProducts.map((product, index) => (
+              <div 
+                key={`mercado-${product.id}-${index}`} 
+                className="flex-shrink-0 w-[180px] animate-in fade-in slide-in-from-bottom-2 duration-500"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  description={product.description || `${product.size || ''} ${product.volume || ''}`.trim()}
+                  price={product.price || 0}
+                  image={getProductImage(product)}
+                  initialQuantity={productQuantities[product.id] || 0}
+                  onQuantityChange={handleProductQuantityChange}
+                  currency="$"
+                  onClick={() => handleProductClick(product)}
+                  loading={loadingProductId === product.id}
+                />
+              </div>
+            ))}
+            
+            {/* Loading más productos */}
+            {loadingMoreMercado && (
+              <div className="flex-shrink-0 w-[180px]">
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-4 space-y-3">
+                    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl animate-pulse relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                           style={{ animation: 'shimmer 2s infinite' }} />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                      </div>
+                      <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                      <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-4">
+            <div className="text-center py-8 text-gray-500">
+              <p>No hay productos de mercado disponibles</p>
             </div>
           </div>
         )}
@@ -794,6 +1368,17 @@ export function InicioView({
         currency="$"
       />
 
+      {/* Restaurant Drawer */}
+      <RestauranteDrawer
+        open={showRestaurantDrawer}
+        onOpenChange={setShowRestaurantDrawer}
+        restaurant={selectedRestaurant}
+        onQuantityChange={handleProductQuantityChange}
+        productQuantities={productQuantities}
+        loadingProductId={loadingProductId}
+        currency="$"
+      />
+
       {/* Subcategories/Products Drawer */}
       <Drawer open={showSubcategoriesDrawer} onOpenChange={(open) => {
         setShowSubcategoriesDrawer(open)
@@ -814,7 +1399,17 @@ export function InicioView({
             boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.1)'
           }}
         >
-          <DrawerHeader className="text-center pb-4">
+          {/* Botón de cerrar principal */}
+          <div className="absolute top-4 left-4 z-10">
+            <button
+              onClick={() => setShowSubcategoriesDrawer(false)}
+              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+            >
+              <ArrowLeftIcon className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
+
+          <DrawerHeader className="text-center pb-4 pt-12">
             <div className="flex items-center justify-center relative">
               {/* Botón de regreso con animación */}
               <div className={`absolute left-0 transition-all duration-300 ease-in-out ${
@@ -881,16 +1476,24 @@ export function InicioView({
             }`}>
               {loadingSubcategoryProducts ? (
                 <div className="grid grid-cols-2 gap-4 pb-6">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <div key={i} className="bg-white rounded-2xl overflow-hidden animate-pulse">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
                       <div className="p-4 space-y-3">
-                        <div className="aspect-square bg-gray-200 rounded-2xl" />
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-200 rounded" />
-                          <div className="h-3 bg-gray-200 rounded w-2/3" />
-                          <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        {/* Imagen skeleton mejorada */}
+                        <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl relative overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                               style={{ animation: 'shimmer 2s infinite' }} />
                         </div>
-                        <div className="h-10 bg-gray-200 rounded-full" />
+                        
+                        {/* Content skeleton mejorado */}
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                            <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
+                          </div>
+                          <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-3/5 animate-pulse" />
+                          <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 rounded-full animate-pulse" />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -950,13 +1553,16 @@ export function InicioView({
                 : 'opacity-0 transform scale-95 absolute inset-0 pointer-events-none'
             }`}>
               {loadingSubcategories ? (
-                <div className="space-y-4 pb-6">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center space-x-4 p-4">
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded animate-pulse mb-2" />
-                        <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+                <div className="space-y-3 pb-6">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center space-x-4 p-4 bg-white rounded-xl animate-pulse">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg flex-shrink-0 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer transform -skew-x-12" 
+                             style={{ animation: 'shimmer 2s infinite' }} />
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded animate-pulse" />
+                        <div className="h-3 bg-gradient-to-r from-gray-200 to-gray-300 rounded w-4/5 animate-pulse" />
                       </div>
                     </div>
                   ))}

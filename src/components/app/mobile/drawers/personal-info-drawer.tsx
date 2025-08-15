@@ -133,7 +133,6 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
       open={open}
       onOpenChange={onOpenChange}
       title="Información personal"
-      icon={<User className="h-5 w-5 text-orange-600" />}
     >
       <div className="space-y-6 py-6">
         {/* Formulario */}

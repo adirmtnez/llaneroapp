@@ -123,7 +123,7 @@ export function AuthModal({
               value={formData.name}
               onChange={handleInputChange}
               required
-              className="h-11 md:h-10 text-base md:text-sm"
+              className="min-h-[56px] text-base"
             />
           </div>
         )}
@@ -137,7 +137,7 @@ export function AuthModal({
             value={formData.email}
             onChange={handleInputChange}
             required
-            className="h-11 md:h-10 text-base md:text-sm"
+            className="min-h-[56px] text-base"
           />
         </div>
 
@@ -151,7 +151,7 @@ export function AuthModal({
             onChange={handleInputChange}
             required
             minLength={6}
-            className="h-11 md:h-10 text-base md:text-sm pr-10"
+            className="min-h-[56px] text-base pr-10"
           />
           <button
             type="button"
@@ -170,7 +170,7 @@ export function AuthModal({
         <Button
           type="submit"
           disabled={loading}
-          className="w-full h-12 md:h-10 text-base md:text-sm font-semibold"
+          className="w-full min-h-[56px] text-base font-semibold"
         >
           {loading ? 'Cargando...' : (mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}
         </Button>
@@ -222,7 +222,7 @@ export function AuthModal({
             </div>
           </DrawerHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="flex-1 overflow-y-auto px-6 pb-8">
             <AuthForm />
           </div>
         </DrawerContent>
