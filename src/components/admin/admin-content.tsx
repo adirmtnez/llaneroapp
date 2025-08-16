@@ -38,7 +38,20 @@ export function AdminContent() {
   useEffect(() => {
     // Restore saved view on component mount
     const savedView = localStorage.getItem('adminCurrentView')
+    const savedPedido = localStorage.getItem('adminSelectedPedido')
+    
     setCurrentView(savedView || 'inicio')
+    
+    // Restore selected pedido if exists
+    if (savedPedido) {
+      try {
+        setSelectedPedido(JSON.parse(savedPedido))
+      } catch (err) {
+        console.warn('Error parsing saved pedido:', err)
+        localStorage.removeItem('adminSelectedPedido')
+      }
+    }
+    
     setIsViewLoaded(true)
   }, [])
 
@@ -48,6 +61,17 @@ export function AdminContent() {
       localStorage.setItem('adminCurrentView', currentView)
     }
   }, [currentView, isViewLoaded])
+
+  // Save selected pedido to localStorage whenever it changes
+  useEffect(() => {
+    if (isViewLoaded) {
+      if (selectedPedido) {
+        localStorage.setItem('adminSelectedPedido', JSON.stringify(selectedPedido))
+      } else {
+        localStorage.removeItem('adminSelectedPedido')
+      }
+    }
+  }, [selectedPedido, isViewLoaded])
 
   // Don't render until view is loaded from localStorage
   if (!isViewLoaded || !currentView) {
@@ -75,7 +99,15 @@ export function AdminContent() {
           onBack={() => {
             setSelectedPedido(null)
             setCurrentView('bodegones-pedidos')
-          }} 
+          }}
+          onEdit={() => {
+            // Después de editar, mantener el pedido seleccionado
+            console.log('Pedido editado exitosamente')
+          }}
+          onPedidoUpdate={(updatedPedido) => {
+            // Actualizar el pedido seleccionado con los nuevos datos
+            setSelectedPedido(updatedPedido)
+          }}
         />
       case 'bodegones-productos':
         return <BodegonesProductosTodosView />

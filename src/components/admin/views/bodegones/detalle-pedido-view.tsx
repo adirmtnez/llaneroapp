@@ -11,6 +11,11 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeftIcon, CreditCard, Smartphone, Landmark, Globe, CheckCircle, Clock, Package, Truck, Home, MapPin, Printer, Edit, User, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { 
+  mapDatabaseStatusToUI,
+  mapPaymentMethod
+} from '@/utils/orders-service'
+import { nuclearUpdate } from '@/utils/nuclear-client'
 
 // Interfaces
 interface ProductoPedido {
@@ -37,10 +42,11 @@ interface DetallePedido {
   cliente: {
     nombre: string
     email?: string
+    telefono?: string
     direccion?: string
   }
-  metodoPago: 'pago_movil' | 'transferencia_bancaria' | 'cuenta_internacional'
-  estado: 'procesando' | 'preparando' | 'enviado' | 'entregado'
+  metodoPago: string
+  estado: string
   repartidor_id?: string
   tipoEntrega: 'domicilio' | 'pickup'
   direccionEntrega?: string
@@ -49,6 +55,7 @@ interface DetallePedido {
   total: number
   productos: ProductoPedido[]
   bodegon: string
+  verification_code?: string
 }
 
 interface DetallePedidoViewProps {
@@ -56,6 +63,7 @@ interface DetallePedidoViewProps {
   pedido?: DetallePedido
   onEdit?: () => void
   onPrint?: () => void
+  onPedidoUpdate?: (updatedPedido: DetallePedido) => void
 }
 
 // Mock data de repartidores
@@ -67,108 +75,51 @@ const mockRepartidores: Repartidor[] = [
   { id: '5', nombre: 'José Torres', telefono: '+58 424-111-9999', activo: true }
 ]
 
-// Mock data para demo
-const mockPedido: DetallePedido = {
-  id: '1',
-  numero: 'ORD-12345',
-  fecha: '2025-01-09',
-  hora: '15:03',
-  cliente: {
-    nombre: 'Alice Johnson',
-    email: 'alice@example.com',
-    direccion: '123 Main St, Anytown, AN 12345'
-  },
-  metodoPago: 'pago_movil',
-  estado: 'enviado',
-  repartidor_id: '2',
-  tipoEntrega: 'domicilio',
-  direccionEntrega: '123 Main St, Anytown, AN 12345',
-  subtotal: 276.88,
-  envio: 10.00,
-  total: 286.88,
-  productos: [
-    {
-      id: '1',
-      nombre: 'Wireless Headphones',
-      cantidad: 2,
-      precio: 25.99,
-      total: 51.98
-    },
-    {
-      id: '2',
-      nombre: 'Bluetooth Speaker',
-      cantidad: 1,
-      precio: 49.99,
-      total: 49.99
-    },
-    {
-      id: '3',
-      nombre: 'Smartphone Case',
-      cantidad: 3,
-      precio: 15.99,
-      total: 47.97
-    },
-    {
-      id: '4',
-      nombre: 'USB-C Cable',
-      cantidad: 2,
-      precio: 12.50,
-      total: 25.00
-    },
-    {
-      id: '5',
-      nombre: 'Wireless Charger',
-      cantidad: 1,
-      precio: 35.99,
-      total: 35.99
-    },
-    {
-      id: '6',
-      nombre: 'Power Bank',
-      cantidad: 1,
-      precio: 29.99,
-      total: 29.99
-    },
-    {
-      id: '7',
-      nombre: 'Screen Protector',
-      cantidad: 4,
-      precio: 8.99,
-      total: 35.96
-    }
-  ],
-  bodegon: 'Bodegón Central'
-}
 
-function getMetodoPagoInfo(metodo: DetallePedido['metodoPago']) {
+function getMetodoPagoInfo(metodo: string) {
+  const metodoPagoText = mapPaymentMethod(metodo)
+  
   switch (metodo) {
-    case 'pago_movil':
+    case 'pagomovil':
       return {
         icon: Smartphone,
-        label: 'Pago Móvil',
-        detail: 'Smartphone ending in ****'
+        label: metodoPagoText,
+        detail: 'Pago móvil'
       }
-    case 'transferencia_bancaria':
+    case 'transferencia':
       return {
         icon: Landmark,
-        label: 'Transferencia Bancaria',
-        detail: 'Bank transfer'
+        label: metodoPagoText,
+        detail: 'Transferencia bancaria'
       }
-    case 'cuenta_internacional':
+    case 'zelle':
       return {
         icon: Globe,
-        label: 'Cuenta Internacional',
-        detail: 'International account'
+        label: metodoPagoText,
+        detail: 'Zelle'
+      }
+    case 'banesco':
+      return {
+        icon: Globe,
+        label: metodoPagoText,
+        detail: 'Banesco Panamá'
+      }
+    default:
+      return {
+        icon: Smartphone,
+        label: metodoPagoText,
+        detail: 'Método de pago'
       }
   }
 }
 
-function getEstadoInfo(estado: DetallePedido['estado']) {
+function getEstadoInfo(estado: string) {
   const estados = [
-    { key: 'procesando', label: 'Processing', icon: Clock, completed: true },
-    { key: 'preparando', label: 'Shipped', icon: Package, completed: true },
-    { key: 'enviado', label: 'Out for Delivery', icon: Truck, completed: true },
-    { key: 'entregado', label: 'Delivered', icon: CheckCircle, completed: false }
+    { key: 'pending', label: 'Procesando', icon: Clock },
+    { key: 'confirmed', label: 'Confirmado', icon: CheckCircle },
+    { key: 'preparing', label: 'Preparando', icon: Package },
+    { key: 'shipped', label: 'Enviado', icon: Truck },
+    { key: 'delivered', label: 'Entregado', icon: CheckCircle }
   ]
   
   const currentIndex = estados.findIndex(e => e.key === estado)
@@ -184,7 +135,8 @@ export function DetallePedidoView({
   onBack, 
   pedido,
   onEdit,
-  onPrint
+  onPrint,
+  onPedidoUpdate
 }: DetallePedidoViewProps) {
   // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false)
@@ -192,13 +144,45 @@ export function DetallePedidoView({
   const [editRepartidor, setEditRepartidor] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   
+  // Estado local del pedido para actualizaciones en tiempo real
+  const [localPedido, setLocalPedido] = useState<DetallePedido | null>(null)
+  
   // Estados para el indicador de scroll
   const [showScrollIndicator, setShowScrollIndicator] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   
-  // Usar mock data si no se proporciona pedido o si pedido es null
-  const pedidoData = pedido || mockPedido
+  // Inicializar estado local con el pedido proporcionado
+  useEffect(() => {
+    if (pedido) {
+      setLocalPedido(pedido)
+    }
+  }, [pedido])
+  
+  // Usar el pedido local si existe, sino el proporcionado
+  const pedidoData = localPedido || pedido
+  
+  // Debug: Ver qué datos de cliente están llegando
+  console.log('👤 Datos del cliente:', pedidoData?.cliente)
+  
+  // Si no hay pedido proporcionado, mostrar mensaje
+  if (!pedidoData) {
+    return (
+      <div className="space-y-6 w-full max-w-4xl mx-auto pt-4 pb-24">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={onBack} className="h-10 md:h-8">
+            <ArrowLeftIcon className="w-4 h-4" />
+          </Button>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+            Detalle del Pedido
+          </h1>
+        </div>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No se encontró información del pedido</p>
+        </div>
+      </div>
+    )
+  }
   
   const metodoPago = getMetodoPagoInfo(pedidoData.metodoPago)
   const pasos = getEstadoInfo(pedidoData.estado)
@@ -214,14 +198,10 @@ export function DetallePedidoView({
   }
 
   const handleEdit = () => {
-    if (onEdit) {
-      onEdit()
-    } else {
-      // Abrir modal con datos actuales
-      setEditEstado(pedidoData.estado)
-      setEditRepartidor(pedidoData.repartidor_id || 'sin_asignar')
-      setShowEditModal(true)
-    }
+    // Siempre abrir el modal de edición local
+    setEditEstado(pedidoData.estado)
+    setEditRepartidor(pedidoData.repartidor_id || 'sin_asignar')
+    setShowEditModal(true)
   }
 
   // Hook para detectar si estamos en mobile y si hay scroll
@@ -260,23 +240,75 @@ export function DetallePedidoView({
     setIsSubmitting(true)
     
     try {
-      // Simular API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Actualizar el estado del pedido en la base de datos
+      const updateData: any = {
+        status: editEstado,
+        updated_at: new Date().toISOString()
+      }
       
-      // Aquí iría la llamada real a la API para actualizar el pedido
-      console.log('Actualizando pedido:', {
+      // Solo agregar delivery_person_id si no es 'sin_asignar'
+      if (editRepartidor !== 'sin_asignar') {
+        updateData.delivery_person_id = editRepartidor
+      } else {
+        updateData.delivery_person_id = null
+      }
+      
+      console.log('🔄 Actualizando pedido:', {
         id: pedidoData.id,
-        estado: editEstado,
-        repartidor_id: editRepartidor === 'sin_asignar' ? null : editRepartidor
+        updateData
       })
+      
+      const { error } = await nuclearUpdate(
+        'orders',
+        pedidoData.id,
+        updateData
+      )
+      
+      if (error) {
+        console.error('❌ Error actualizando pedido:', error)
+        toast.error('Error al actualizar el pedido')
+        return
+      }
       
       toast.success('Pedido actualizado exitosamente')
       setShowEditModal(false)
       
-      // Aquí podrías actualizar los datos del pedido en el estado
+      // Actualizar el estado local del pedido inmediatamente
+      if (pedidoData) {
+        const updatedPedido = {
+          ...pedidoData,
+          estado: editEstado
+        }
+        
+        // Actualizar estado local para reflejar cambios inmediatamente
+        setLocalPedido(updatedPedido)
+        
+        // Actualizar el localStorage con los nuevos datos
+        try {
+          const savedPedido = localStorage.getItem('adminSelectedPedido')
+          if (savedPedido) {
+            const parsedPedido = JSON.parse(savedPedido)
+            const updated = { ...parsedPedido, estado: editEstado }
+            localStorage.setItem('adminSelectedPedido', JSON.stringify(updated))
+          }
+        } catch (err) {
+          console.warn('Error actualizando pedido en localStorage:', err)
+        }
+        
+        // Notificar al componente padre del cambio
+        if (onPedidoUpdate) {
+          onPedidoUpdate(updatedPedido)
+        }
+      }
+      
+      // Opcional: callback para notificar al componente padre
+      if (onEdit) {
+        onEdit()
+      }
       
     } catch (error) {
-      toast.error('Error al actualizar el pedido')
+      console.error('💥 Error inesperado:', error)
+      toast.error('Error inesperado al actualizar el pedido')
     } finally {
       setIsSubmitting(false)
     }
@@ -293,25 +325,31 @@ export function DetallePedidoView({
             <SelectValue placeholder="Seleccionar estado" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="procesando">
+            <SelectItem value="pending">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                 Procesando
               </div>
             </SelectItem>
-            <SelectItem value="preparando">
+            <SelectItem value="confirmed">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                Confirmado
+              </div>
+            </SelectItem>
+            <SelectItem value="preparing">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
                 Preparando
               </div>
             </SelectItem>
-            <SelectItem value="enviado">
+            <SelectItem value="shipped">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                <div className="w-2 h-2 rounded-full bg-blue-600"></div>
                 Enviado
               </div>
             </SelectItem>
-            <SelectItem value="entregado">
+            <SelectItem value="delivered">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 Entregado
@@ -379,31 +417,49 @@ export function DetallePedidoView({
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
+              <div className="space-y-4">
                 <h4 className="font-medium text-sm mb-2">Información del Cliente</h4>
-                <div className="text-sm space-y-1">
+                <div className="text-sm space-y-2">
                   <p className="font-medium">{pedidoData.cliente.nombre}</p>
                   {pedidoData.cliente.email && (
                     <p className="text-muted-foreground">{pedidoData.cliente.email}</p>
                   )}
+                  {pedidoData.cliente.telefono && (
+                    <p className="text-muted-foreground">{pedidoData.cliente.telefono}</p>
+                  )}
                   {pedidoData.cliente.direccion && (
-                    <p className="text-muted-foreground">{pedidoData.cliente.direccion}</p>
+                    <p className="text-muted-foreground leading-relaxed">{pedidoData.cliente.direccion}</p>
                   )}
                 </div>
               </div>
               
-              <div>
+              <div className="space-y-4">
                 <h4 className="font-medium text-sm mb-2">Método de Pago</h4>
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border">
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-md border">
                   <div className="flex items-center justify-center w-8 h-8 rounded bg-gray-100">
                     <MetodoPagoIcon className="w-4 h-4 text-gray-600" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-sm">{metodoPago.label}</p>
-                    <p className="text-xs text-muted-foreground">{metodoPago.detail}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{metodoPago.detail}</p>
                   </div>
                 </div>
               </div>
+                
+              {/* Código de verificación */}
+              {pedidoData.verification_code && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm mb-2">Código de Verificación</h4>
+                  <div className="p-4 bg-orange-50 rounded-md border border-orange-200">
+                    <p className="font-mono font-bold text-lg text-orange-600 text-center">
+                      {pedidoData.verification_code}
+                    </p>
+                    <p className="text-xs text-center text-orange-600 mt-1">
+                      Código para confirmar entrega
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -448,11 +504,15 @@ export function DetallePedidoView({
                 
                 {/* Badge del estado actual */}
                 <div className="flex justify-center">
-                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                    Shipped
+                  <Badge className={cn("border-0", mapDatabaseStatusToUI(pedidoData.estado).variant)}>
+                    {mapDatabaseStatusToUI(pedidoData.estado).label}
                   </Badge>
                   <span className="text-sm text-muted-foreground ml-2">
-                    on December 23, 2024
+                    {new Date(pedidoData.fecha).toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
                   </span>
                 </div>
               </div>

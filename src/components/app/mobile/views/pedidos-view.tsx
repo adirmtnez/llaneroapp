@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Package, Clock, CheckCircle, Truck, ChevronRight, Smartphone, Landmark, Globe, ArrowLeft, FileText, User, Phone, MapPin, MessageCircle } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Package, Clock, CheckCircle, Truck, ChevronRight, Smartphone, Landmark, Globe, ArrowLeft, FileText, User, Phone, MapPin, MessageCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,30 +9,17 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { cn } from '@/lib/utils'
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { useAuth } from '@/contexts/auth-context'
+import { 
+  loadUserOrders, 
+  getPendingOrders, 
+  getDeliveredOrders, 
+  mapDatabaseStatusToUI,
+  mapPaymentMethod,
+  type CompleteOrder 
+} from '@/utils/orders-service'
 
-// Interfaces
-interface Pedido {
-  id: string
-  numero: string
-  total: number
-  estado: 'procesando' | 'preparando' | 'enviado' | 'entregado'
-  metodo_pago: 'pago_movil' | 'transferencia_bancaria' | 'cuenta_internacional'
-  fecha_pedido: string
-  hora_pedido: string
-  bodegon_nombre: string
-  productos?: ProductoPedido[]
-  envio?: number
-  subtotal?: number
-}
-
-interface ProductoPedido {
-  id: string
-  nombre: string
-  cantidad: number
-  precio: number
-  total: number
-}
-
+// Interfaces para UI (simplificadas)
 interface Repartidor {
   nombre: string
   telefono: string
@@ -45,165 +32,17 @@ interface BodegonContacto {
   telefono: string
 }
 
-// Mock data para pedidos
-const mockPedidosPendientes: Pedido[] = [
-  {
-    id: '1',
-    numero: 'TEZ7ATAQ4D',
-    total: 300.00,
-    estado: 'preparando',
-    metodo_pago: 'pago_movil',
-    fecha_pedido: '2023-07-03',
-    hora_pedido: '15:03',
-    bodegon_nombre: 'Bodegón Central',
-    subtotal: 280.00,
-    envio: 20.00,
-    productos: [
-      {
-        id: '1',
-        nombre: 'Hamburguesa Premium',
-        cantidad: 2,
-        precio: 85.00,
-        total: 170.00
-      },
-      {
-        id: '2',
-        nombre: 'Papas Fritas Grande',
-        cantidad: 1,
-        precio: 45.00,
-        total: 45.00
-      },
-      {
-        id: '3',
-        nombre: 'Coca Cola 350ml',
-        cantidad: 2,
-        precio: 32.50,
-        total: 65.00
-      }
-    ]
-  },
-  {
-    id: '2',
-    numero: 'TETDZR3PA6',
-    total: 450.00,
-    estado: 'procesando',
-    metodo_pago: 'transferencia_bancaria',
-    fecha_pedido: '2023-07-03',
-    hora_pedido: '14:30',
-    bodegon_nombre: 'Bodegón Norte',
-    subtotal: 430.00,
-    envio: 20.00,
-    productos: [
-      {
-        id: '4',
-        nombre: 'Pizza Familiar',
-        cantidad: 1,
-        precio: 320.00,
-        total: 320.00
-      },
-      {
-        id: '5',
-        nombre: 'Refresco 2L',
-        cantidad: 2,
-        precio: 55.00,
-        total: 110.00
-      }
-    ]
-  }
-]
-
-const mockPedidosEntregados: Pedido[] = [
-  {
-    id: '3',
-    numero: 'CERVEZA001',
-    total: 120.00,
-    estado: 'entregado',
-    metodo_pago: 'pago_movil',
-    fecha_pedido: '2023-06-24',
-    hora_pedido: '17:17',
-    bodegon_nombre: 'Bodegón Sur',
-    subtotal: 100.00,
-    envio: 20.00,
-    productos: [
-      {
-        id: '6',
-        nombre: 'Cerveza Premium 355ml',
-        cantidad: 6,
-        precio: 16.67,
-        total: 100.00
-      }
-    ]
-  },
-  {
-    id: '4',
-    numero: 'TC9Y6PYZE4',
-    total: 1000.00,
-    estado: 'entregado',
-    metodo_pago: 'transferencia_bancaria',
-    fecha_pedido: '2023-06-24',
-    hora_pedido: '16:45',
-    bodegon_nombre: 'Bodegón Este',
-    subtotal: 980.00,
-    envio: 20.00,
-    productos: [
-      {
-        id: '7',
-        nombre: 'Parrilla Familiar',
-        cantidad: 1,
-        precio: 650.00,
-        total: 650.00
-      },
-      {
-        id: '8',
-        nombre: 'Ensalada César',
-        cantidad: 2,
-        precio: 120.00,
-        total: 240.00
-      },
-      {
-        id: '9',
-        nombre: 'Jugo Natural',
-        cantidad: 3,
-        precio: 30.00,
-        total: 90.00
-      }
-    ]
-  }
-]
-
-function getEstadoConfig(estado: Pedido['estado']) {
-  switch (estado) {
-    case 'procesando':
-      return {
-        label: 'Procesando',
-        badgeColor: 'bg-gray-100 text-gray-700 hover:bg-gray-100'
-      }
-    case 'preparando':
-      return {
-        label: 'Preparando',
-        badgeColor: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
-      }
-    case 'enviado':
-      return {
-        label: 'Enviado',
-        badgeColor: 'bg-blue-100 text-blue-700 hover:bg-blue-100'
-      }
-    case 'entregado':
-      return {
-        label: 'Entregado',
-        badgeColor: 'bg-green-100 text-green-700 hover:bg-green-100'
-      }
-  }
-}
-
-function getMetodoPagoIcon(metodo: Pedido['metodo_pago']) {
+function getMetodoPagoIcon(metodo: string) {
   switch (metodo) {
-    case 'pago_movil':
+    case 'pagomovil':
       return Smartphone
-    case 'transferencia_bancaria':
+    case 'transferencia':
       return Landmark
-    case 'cuenta_internacional':
+    case 'zelle':
+    case 'banesco':
       return Globe
+    default:
+      return Smartphone
   }
 }
 
@@ -220,30 +59,178 @@ function formatFecha(fecha: string) {
 }
 
 export function PedidosView() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'pendientes' | 'entregados'>('pendientes')
-  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null)
+  const [selectedPedido, setSelectedPedido] = useState<CompleteOrder | null>(null)
   const [showPedidoModal, setShowPedidoModal] = useState(false)
   const [showDetallesEnvio, setShowDetallesEnvio] = useState(false)
+  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Mock data para repartidor y bodegón
-  const getMockRepartidor = (pedido: Pedido): Repartidor => ({
+  // Función para cargar pedidos (reutilizable)
+  const loadOrders = async (isRefresh = false) => {
+    if (!user?.auth_user?.id) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true)
+      } else {
+        setIsLoading(true)
+      }
+      setError(null)
+      
+      console.log('🔍 Cargando pedidos para usuario:', user.auth_user.id)
+      const { orders, error: loadError } = await loadUserOrders(user.auth_user.id)
+      
+      if (loadError) {
+        setError(loadError)
+        console.error('❌ Error cargando pedidos:', loadError)
+      } else {
+        setAllOrders(orders)
+        console.log('✅ Pedidos cargados:', orders.length)
+      }
+    } catch (err) {
+      console.error('💥 Error inesperado:', err)
+      setError('Error inesperado al cargar pedidos')
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }
+
+  // Cargar pedidos inicialmente
+  useEffect(() => {
+    loadOrders()
+  }, [user?.auth_user?.id])
+
+  // Polling para actualizar pedidos pendientes cada 30 segundos
+  useEffect(() => {
+    if (!user?.auth_user?.id) return
+
+    // Solo hacer polling si hay pedidos pendientes
+    const hasPendingOrders = allOrders.some(order => 
+      order.status !== 'delivered' && order.status !== 'cancelled'
+    )
+
+    if (hasPendingOrders) {
+      console.log('📡 Iniciando polling para pedidos pendientes...')
+      
+      const interval = setInterval(() => {
+        // Solo actualizar si la página está visible
+        if (!document.hidden) {
+          console.log('🔄 Actualizando pedidos automáticamente...')
+          loadOrders(true) // isRefresh = true
+        } else {
+          console.log('📱 Página oculta, saltando actualización')
+        }
+      }, 30000) // 30 segundos
+
+      // También actualizar cuando la página vuelve a ser visible
+      const handleVisibilityChange = () => {
+        if (!document.hidden && hasPendingOrders) {
+          console.log('👁️ Página visible, actualizando pedidos...')
+          loadOrders(true)
+        }
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      return () => {
+        console.log('📡 Deteniendo polling')
+        clearInterval(interval)
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      }
+    }
+  }, [user?.auth_user?.id, allOrders])
+
+  // Mock data para repartidor y bodegón  
+  const getMockRepartidor = (pedido: CompleteOrder): Repartidor => ({
     nombre: "Carlos Rodríguez",
-    telefono: "+58 414 5446784",
-    metodo_pago: pedido.metodo_pago
+    telefono: "+58 414 5446784", 
+    metodo_pago: pedido.order_payments?.[0]?.payment_method || 'pagomovil'
   })
 
-  const getMockBodegon = (pedido: Pedido): BodegonContacto => ({
-    nombre: pedido.bodegon_nombre,
+  const getMockBodegon = (pedido: CompleteOrder): BodegonContacto => ({
+    nombre: "Bodegón Central", // TODO: Obtener nombre real del bodegón
     direccion: "Av. Principal #456, Centro Comercial Plaza, Local 23",
     telefono: "+58 212 1234567"
   })
 
   const getCurrentPedidos = () => {
-    return activeTab === 'pendientes' ? mockPedidosPendientes : mockPedidosEntregados
+    if (activeTab === 'pendientes') {
+      return getPendingOrders(allOrders)
+    } else {
+      return getDeliveredOrders(allOrders)
+    }
   }
 
   const renderPedidosList = () => {
+    // Loading state
+    if (isLoading) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
+            <p className="text-gray-600 text-sm">Cargando pedidos...</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Error state
+    if (error) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <Package className="w-8 h-8 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Error cargando pedidos</h3>
+              <p className="text-gray-600 text-sm">{error}</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Auth required state
+    if (!user?.auth_user?.id) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+              <User className="w-8 h-8 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Inicia sesión</h3>
+              <p className="text-gray-600 text-sm">Inicia sesión para ver tus pedidos</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     const pedidos = getCurrentPedidos()
+    console.log('🔍 Debug - pedidos actuales:', { 
+      activeTab, 
+      allOrdersLength: allOrders.length, 
+      currentPedidosLength: pedidos.length,
+      pedidos: pedidos.map(p => ({ 
+        id: p.id, 
+        status: p.status, 
+        created_at: p.created_at,
+        order_number: p.order_number,
+        total_amount: p.total_amount 
+      }))
+    })
+    
+    console.log('🔍 Debug - pedidosAgrupados después de reduce:')
 
     if (pedidos.length === 0) {
       return (
@@ -279,37 +266,80 @@ export function PedidosView() {
 
     // Agrupar pedidos por fecha
     const pedidosAgrupados = pedidos.reduce((acc, pedido) => {
-      const fecha = pedido.fecha_pedido
+      console.log('🔍 Procesando pedido para agrupación:', { 
+        id: pedido?.id, 
+        created_at: pedido?.created_at,
+        hasCreatedAt: !!pedido?.created_at 
+      })
+      
+      if (!pedido?.created_at) {
+        console.warn('⚠️ Pedido sin created_at, saltando:', pedido)
+        return acc
+      }
+      
+      const fecha = pedido.created_at.split('T')[0] // Extraer solo la fecha
+      console.log('📅 Fecha extraída:', fecha)
+      
       if (!acc[fecha]) {
         acc[fecha] = []
       }
       acc[fecha].push(pedido)
+      console.log('✅ Pedido agregado a fecha:', fecha, 'Total en esta fecha:', acc[fecha].length)
       return acc
-    }, {} as Record<string, Pedido[]>)
+    }, {} as Record<string, CompleteOrder[]>)
+    
+    console.log('📊 PedidosAgrupados final:', pedidosAgrupados)
+    console.log('📊 Fechas encontradas:', Object.keys(pedidosAgrupados))
 
     // Ordenar fechas (más recientes primero)
     const fechasOrdenadas = Object.keys(pedidosAgrupados).sort((a, b) => 
       new Date(b).getTime() - new Date(a).getTime()
     )
+    
+    console.log('📈 Fechas ordenadas:', fechasOrdenadas)
+    console.log('🏗️ Iniciando renderizado de fechas...')
 
     return (
       <div className="space-y-6">
-        {fechasOrdenadas.map(fecha => (
-          <div key={fecha} className="space-y-4">
-            {/* Separador de fecha */}
-            <h3 className="text-sm font-medium text-gray-500 px-1">
-              {formatFecha(fecha)}
-            </h3>
+        {fechasOrdenadas.map(fecha => {
+          console.log('🗓️ Renderizando fecha:', fecha, 'con', pedidosAgrupados[fecha].length, 'pedidos')
+          return (
+            <div key={fecha} className="space-y-4">
+              {/* Separador de fecha */}
+              <h3 className="text-sm font-medium text-gray-500 px-1">
+                {(() => {
+                  try {
+                    return formatFecha(fecha)
+                  } catch (err) {
+                    console.error('Error formateando fecha:', fecha, err)
+                    return fecha
+                  }
+                })()}
+              </h3>
             
             {/* Pedidos de esta fecha */}
             <div className="space-y-2">
-              {pedidosAgrupados[fecha].map(pedido => {
-                const estadoConfig = getEstadoConfig(pedido.estado)
-                const MetodoPagoIcon = getMetodoPagoIcon(pedido.metodo_pago)
+              {pedidosAgrupados[fecha].map((pedido, index) => {
+                if (!pedido?.id) {
+                  console.warn('Pedido sin ID encontrado:', pedido)
+                  return null
+                }
+                
+                const estadoConfig = mapDatabaseStatusToUI(pedido.status || 'pending')
+                const paymentMethod = pedido.order_payments?.[0]?.payment_method || 'pagomovil'
+                const MetodoPagoIcon = getMetodoPagoIcon(paymentMethod)
+                const horaCreacion = pedido.created_at ? (() => {
+                  try {
+                    return format(parseISO(pedido.created_at), 'HH:mm')
+                  } catch (err) {
+                    console.error('Error formateando hora:', pedido.created_at, err)
+                    return '--:--'
+                  }
+                })() : '--:--'
                 
                 return (
                   <Card 
-                    key={pedido.id} 
+                    key={`${pedido.id}-${index}`} 
                     className="hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
                       setSelectedPedido(pedido)
@@ -327,15 +357,15 @@ export function PedidosView() {
                           {/* Info del pedido */}
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900 mb-1">
-                              {pedido.numero}
+                              {pedido.order_number || 'Sin número'}
                             </p>
                             <div className="flex items-center gap-2">
-                              <Badge className={cn("text-xs border-0", estadoConfig.badgeColor)}>
+                              <Badge className={cn("text-xs border-0", estadoConfig.variant)}>
                                 {estadoConfig.label}
                               </Badge>
                               <span className="text-gray-400">•</span>
                               <p className="text-xs text-gray-500">
-                                {pedido.hora_pedido}
+                                {horaCreacion}
                               </p>
                             </div>
                           </div>
@@ -344,7 +374,7 @@ export function PedidosView() {
                         {/* Monto y chevron */}
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold">
-                            ${pedido.total.toFixed(2)}
+                            ${(pedido.total_amount || 0).toFixed(2)}
                           </p>
                           <ChevronRight className="h-4 w-4 text-gray-400" />
                         </div>
@@ -352,10 +382,11 @@ export function PedidosView() {
                     </CardContent>
                   </Card>
                 )
-              })}
+              }).filter(Boolean)}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -364,10 +395,18 @@ export function PedidosView() {
     if (!selectedPedido) return null
 
     const repartidor = getMockRepartidor(selectedPedido)
-    const bodegon = getMockBodegon(selectedPedido)
-    const metodoPagoText = selectedPedido.metodo_pago === 'pago_movil' ? 'Pago móvil' : 
-                          selectedPedido.metodo_pago === 'transferencia_bancaria' ? 'Transferencia bancaria' : 
-                          'Cuenta internacional'
+    const paymentMethod = selectedPedido.order_payments?.[0]?.payment_method || 'pagomovil'
+    const metodoPagoText = mapPaymentMethod(paymentMethod)
+    
+    // Datos reales del bodegón
+    const bodegon = {
+      nombre: selectedPedido.bodegons?.name || 'Bodegón',
+      telefono: selectedPedido.bodegons?.phone_number || 'No disponible',
+      direccion: selectedPedido.bodegons?.address || 'Dirección no disponible'
+    }
+    
+    // Verificar si tiene repartidor asignado
+    const hasDeliveryPerson = selectedPedido.delivery_person_id != null
 
     return (
       <Drawer open={showDetallesEnvio} onOpenChange={setShowDetallesEnvio}>
@@ -389,46 +428,39 @@ export function PedidosView() {
           </DrawerHeader>
 
           <div className="px-4 pb-8 space-y-4 overflow-y-auto">
-            {/* Card del Repartidor */}
-            <Card className="bg-white">
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center space-x-3">
-                  <User className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Repartidor</p>
-                    <p className="font-medium">{repartidor.nombre}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
+            {/* Card del Repartidor - Solo si tiene delivery_person_id */}
+            {hasDeliveryPerson && (
+              <Card className="bg-white">
+                <CardContent className="p-4 space-y-4">
                   <div className="flex items-center space-x-3">
-                    <Phone className="w-5 h-5 text-gray-500" />
+                    <User className="w-5 h-5 text-gray-500" />
                     <div>
-                      <p className="text-sm text-gray-500">Teléfono</p>
-                      <p className="font-medium">{repartidor.telefono}</p>
+                      <p className="text-sm text-gray-500">Repartidor</p>
+                      <p className="font-medium">{repartidor.nombre}</p>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-full px-3"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                  </Button>
-                </div>
 
-                <div className="flex items-center space-x-3">
-                  <div className="w-5 h-5 flex items-center justify-center">
-                    {React.createElement(getMetodoPagoIcon(selectedPedido.metodo_pago), { className: "w-5 h-5 text-gray-500" })}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Phone className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Teléfono</p>
+                        <p className="font-medium">{repartidor.telefono}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-green-500 hover:bg-green-600 text-white rounded-full px-3"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Método de pago</p>
-                    <p className="font-medium">{metodoPagoText}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Card del Bodegón */}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Card del Bodegón - Con datos reales */}
             <Card className="bg-white">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center space-x-3">
@@ -447,12 +479,14 @@ export function PedidosView() {
                       <p className="font-medium">{bodegon.telefono}</p>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-full px-3"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                  </Button>
+                  {bodegon.telefono !== 'No disponible' && (
+                    <Button
+                      size="sm"
+                      className="bg-green-500 hover:bg-green-600 text-white rounded-full px-3"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex items-start space-x-3">
@@ -462,6 +496,7 @@ export function PedidosView() {
                     <p className="font-medium text-sm leading-5">{bodegon.direccion}</p>
                   </div>
                 </div>
+
               </CardContent>
             </Card>
           </div>
@@ -498,27 +533,32 @@ export function PedidosView() {
             <div className="text-center space-y-2 pt-6">
               <h3 className="text-xl font-semibold">Factura Digital</h3>
               <p className="text-sm text-gray-500">
-                {formatFecha(selectedPedido.fecha_pedido)} - {selectedPedido.hora_pedido}
+                {selectedPedido.created_at ? formatFecha(selectedPedido.created_at.split('T')[0]) : 'Fecha no disponible'} - {selectedPedido.created_at ? format(parseISO(selectedPedido.created_at), 'HH:mm') : '--:--'}
               </p>
             </div>
 
             {/* Detalles principales */}
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b-2 border-dashed border-gray-300">
-                <span className="text-sm font-medium">ID de Pedido</span>
-                <span className="text-sm">#{selectedPedido.id}</span>
+                <span className="text-sm font-medium">Número de Pedido</span>
+                <span className="text-sm">{selectedPedido.order_number}</span>
               </div>
               
               <div className="flex justify-between items-center py-2 border-b-2 border-dashed border-gray-300">
                 <span className="text-sm font-medium">Estatus</span>
-                <Badge className={cn("text-xs border-0", getEstadoConfig(selectedPedido.estado).badgeColor)}>
-                  {getEstadoConfig(selectedPedido.estado).label}
+                <Badge className={cn("text-xs border-0", mapDatabaseStatusToUI(selectedPedido.status).variant)}>
+                  {mapDatabaseStatusToUI(selectedPedido.status).label}
                 </Badge>
               </div>
               
               <div className="flex justify-between items-center py-2 border-b-2 border-dashed border-gray-300">
+                <span className="text-sm font-medium">Código de Verificación</span>
+                <span className="text-sm font-mono font-bold text-orange-600">{selectedPedido.verification_code}</span>
+              </div>
+              
+              <div className="flex justify-between items-center py-2 border-b-2 border-dashed border-gray-300">
                 <span className="text-sm font-medium">Monto</span>
-                <span className="text-sm font-semibold">${selectedPedido.total.toFixed(2)}</span>
+                <span className="text-sm font-semibold">${selectedPedido.total_amount.toFixed(2)}</span>
               </div>
             </div>
 
@@ -526,24 +566,36 @@ export function PedidosView() {
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Productos</h4>
               <div className="space-y-2">
-                {selectedPedido.productos?.map((producto) => (
-                  <div key={producto.id} className="flex justify-between items-center text-sm">
-                    <span>{producto.cantidad}x {producto.nombre}</span>
-                    <span>${producto.total.toFixed(2)}</span>
-                  </div>
-                ))}
+                {selectedPedido.order_item?.map((item) => {
+                  const productName = item.bodegon_products?.name || item.name_snapshot || 'Producto'
+                  const itemTotal = item.quantity * item.unit_price
+                  
+                  return (
+                    <div key={item.id} className="flex justify-between items-center text-sm">
+                      <span>{item.quantity}x {productName}</span>
+                      <span>${itemTotal.toFixed(2)}</span>
+                    </div>
+                  )
+                })}
               </div>
               
               <div className="flex justify-between items-center text-sm py-2">
                 <span>Envío</span>
-                <span>${selectedPedido.envio?.toFixed(2) || '0.00'}</span>
+                <span>${selectedPedido.shipping_cost?.toFixed(2) || '0.00'}</span>
               </div>
+              
+              {selectedPedido.discount_amount > 0 && (
+                <div className="flex justify-between items-center text-sm py-2 text-green-600">
+                  <span>Descuento{selectedPedido.coupon_code ? ` (${selectedPedido.coupon_code})` : ''}</span>
+                  <span>-${selectedPedido.discount_amount.toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {/* Total */}
             <div className="flex justify-between items-center text-base font-semibold py-3 border-t-2 border-dashed border-gray-400">
               <span>Total</span>
-              <span>${selectedPedido.total.toFixed(2)}</span>
+              <span>${selectedPedido.total_amount.toFixed(2)}</span>
             </div>
 
             {/* Footer */}
@@ -554,7 +606,7 @@ export function PedidosView() {
           </div>
 
           {/* Footer fijo */}
-          {selectedPedido.estado !== 'entregado' && (
+          {selectedPedido.status !== 'delivered' && selectedPedido.status !== 'cancelled' && (
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
               <Button 
                 className="w-full h-12 text-base bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
@@ -581,7 +633,26 @@ export function PedidosView() {
       <div className="bg-white border-b border-gray-100">
         {/* Header */}
         <div className="px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
+            <div className="flex items-center gap-2">
+              {isRefreshing && (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Actualizando...</span>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadOrders(true)}
+                disabled={isRefreshing}
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -5,10 +5,10 @@ export interface CartItem {
   created_by: string
   quantity: number
   price: number
-  bodegon_product_item: string | null
-  restaurant_product_item: string | null
+  bodegon_product_id: string | null
+  restaurant_product_id: string | null
   name_snapshot: string
-  order: string | null
+  order_id: string | null
   created_at: string
   updated_at: string
 }
@@ -28,10 +28,10 @@ export async function loadUserCart(userId: string) {
     const { data, error } = await nuclearSelect(
       'order_item',
       `*, 
-       bodegon_products!bodegon_product_item(id, name, price, image_gallery_urls)`,
+       bodegon_products(id, name, price, image_gallery_urls)`,
       { 
         created_by: userId,
-        order: null // Solo items que no están en un pedido confirmado
+        order_id: null // Solo items que no están en un pedido confirmado
       }
     )
 
@@ -42,11 +42,11 @@ export async function loadUserCart(userId: string) {
 
     // Transformar a formato esperado por el componente
     const cartItems: CartProductDetails[] = (data || []).map((item: any) => ({
-      id: item.bodegon_products?.id || '',
-      name: item.name_snapshot,
-      price: item.price,
-      quantity: item.quantity,
-      image: item.bodegon_products?.image_gallery_urls?.[0],
+      id: item.bodegon_products?.id || item.bodegon_product_id || item.id,
+      name: item.bodegon_products?.name || item.name_snapshot || 'Producto sin nombre',
+      price: item.bodegon_products?.price || item.unit_price || 0,
+      quantity: item.quantity || 1,
+      image: item.bodegon_products?.image_gallery_urls?.[0] || '',
       order_item_id: item.id
     }))
 
@@ -82,8 +82,8 @@ export async function addToCart(
       '*',
       {
         created_by: userId,
-        [isBodegon ? 'bodegon_product_item' : 'restaurant_product_item']: productId,
-        order: null
+        [isBodegon ? 'bodegon_product_id' : 'restaurant_product_id']: productId,
+        order_id: null
       }
     )
 
@@ -98,12 +98,12 @@ export async function addToCart(
       const insertData = {
         created_by: userId,
         quantity,
-        price,
+        unit_price: price,
         name_snapshot: productName,
-        order: null,
+        order_id: null,
         ...(isBodegon 
-          ? { bodegon_product_item: productId, restaurant_product_item: null }
-          : { restaurant_product_item: productId, bodegon_product_item: null }
+          ? { bodegon_product_id: productId, restaurant_product_id: null }
+          : { restaurant_product_id: productId, bodegon_product_id: null }
         )
       }
 
@@ -182,7 +182,7 @@ export async function clearUserCart(userId: string) {
       'id',
       { 
         created_by: userId,
-        order: null 
+        order_id: null 
       }
     )
 
@@ -212,8 +212,8 @@ export async function findCartItem(userId: string, productId: string, isBodegon:
       '*',
       {
         created_by: userId,
-        [isBodegon ? 'bodegon_product_item' : 'restaurant_product_item']: productId,
-        order: null
+        [isBodegon ? 'bodegon_product_id' : 'restaurant_product_id']: productId,
+        order_id: null
       }
     )
 

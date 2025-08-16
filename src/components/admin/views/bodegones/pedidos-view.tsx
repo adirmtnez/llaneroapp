@@ -5,132 +5,208 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Filter, Download, Smartphone, Landmark, Globe, Clock, CheckCircle, Truck, Package, ChevronRight } from "lucide-react"
+import { Search, Filter, Download, Smartphone, Landmark, Globe, Clock, CheckCircle, Truck, Package, ChevronRight, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { 
+  loadUserOrders, 
+  mapDatabaseStatusToUI,
+  mapPaymentMethod,
+  type CompleteOrder 
+} from '@/utils/orders-service'
 
-// Interfaces
-interface Pedido {
+// Interfaces para compatibilidad con el detalle view
+interface PedidoForDetail {
   id: string
   numero: string
+  fecha: string
+  hora: string
+  cliente: {
+    nombre: string
+    email?: string
+    direccion?: string
+  }
+  metodoPago: string
+  estado: string
+  tipoEntrega: 'domicilio' | 'pickup'
+  direccionEntrega?: string
+  subtotal: number
+  envio: number
   total: number
-  estado: 'procesando' | 'preparando' | 'enviado' | 'entregado'
-  metodo_pago: 'pago_movil' | 'transferencia_bancaria' | 'cuenta_internacional'
-  fecha_pedido: string
-  hora_pedido: string
-  bodegon_nombre: string
+  productos: Array<{
+    id: string
+    nombre: string
+    cantidad: number
+    precio: number
+    total: number
+  }>
+  bodegon: string
+  verification_code?: string
 }
 
-// Mock data - esto vendrá de Supabase
-const mockPedidos: Pedido[] = [
-  {
-    id: '1',
-    numero: 'TEZ7ATAQ4D',
-    total: 300.00,
-    estado: 'entregado',
-    metodo_pago: 'pago_movil',
-    fecha_pedido: '2023-07-03',
-    hora_pedido: '15:03',
-    bodegon_nombre: 'Bodegón Central'
-  },
-  {
-    id: '2', 
-    numero: 'TETDZR3PA6',
-    total: 450.00,
-    estado: 'preparando',
-    metodo_pago: 'transferencia_bancaria',
-    fecha_pedido: '2023-06-14',
-    hora_pedido: '21:43',
-    bodegon_nombre: 'Bodegón Norte'
-  },
-  {
-    id: '3',
-    numero: 'TEGNVP9SAN', 
-    total: 200.00,
-    estado: 'procesando',
-    metodo_pago: 'cuenta_internacional',
-    fecha_pedido: '2023-06-14',
-    hora_pedido: '18:59',
-    bodegon_nombre: 'Bodegón Sur'
-  },
-  {
-    id: '4',
-    numero: 'TFEKFQLLDS',
-    total: 1000.00,
-    estado: 'enviado',
-    metodo_pago: 'pago_movil',
-    fecha_pedido: '2023-06-14',
-    hora_pedido: '18:45',
-    bodegon_nombre: 'Bodegón Central'
-  },
-  {
-    id: '5',
-    numero: 'TC9Y6PYZE4',
-    total: 1000.00,
-    estado: 'entregado',
-    metodo_pago: 'transferencia_bancaria',
-    fecha_pedido: '2023-06-14',
-    hora_pedido: '18:42',
-    bodegon_nombre: 'Bodegón Este'
-  },
-  {
-    id: '6',
-    numero: 'CERVEZA001',
-    total: 120.00,
-    estado: 'entregado',
-    metodo_pago: 'pago_movil',
-    fecha_pedido: '2023-06-24',
-    hora_pedido: '17:17',
-    bodegon_nombre: 'Cerveza Duff'
-  }
-]
+// Función para cargar todos los pedidos de bodegones
+async function loadAllOrders() {
+  try {
+    console.log('🔍 Cargando todos los pedidos de bodegones...')
+    
+    const { nuclearSelect } = await import('@/utils/nuclear-client')
+    
+    // Primero cargar los pedidos básicos (solo pedidos de bodegones)
+    const { data: ordersData, error } = await nuclearSelect(
+      'orders',
+      '*'
+      // Sin filtro inicial - filtraremos después
+    )
 
-function getEstadoConfig(estado: Pedido['estado']) {
-  switch (estado) {
-    case 'procesando':
-      return {
-        icon: Clock,
-        label: 'Procesando',
-        bgColor: 'bg-gray-100',
-        iconColor: 'text-gray-600',
-        badgeColor: 'bg-gray-100 text-gray-700 hover:bg-gray-100'
-      }
-    case 'preparando':
-      return {
-        icon: Package,
-        label: 'Preparando',
-        bgColor: 'bg-gray-100',
-        iconColor: 'text-gray-600',
-        badgeColor: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
-      }
-    case 'enviado':
-      return {
-        icon: Truck,
-        label: 'Enviado',
-        bgColor: 'bg-gray-100',
-        iconColor: 'text-gray-600',
-        badgeColor: 'bg-blue-100 text-blue-700 hover:bg-blue-100'
-      }
-    case 'entregado':
-      return {
-        icon: CheckCircle,
-        label: 'Entregado',
-        bgColor: 'bg-gray-100',
-        iconColor: 'text-gray-600',
-        badgeColor: 'bg-green-100 text-green-700 hover:bg-green-100'
-      }
+    if (error) {
+      console.error('❌ Error cargando pedidos:', error)
+      return { orders: [], error: error.message || 'Error cargando pedidos' }
+    }
+
+    if (!ordersData || ordersData.length === 0) {
+      console.log('📭 No hay pedidos')
+      return { orders: [], error: null }
+    }
+
+    // Filtrar solo pedidos de bodegones (que tienen bodegon_id)
+    const bodegonOrders = ordersData.filter((order: any) => order.bodegon_id !== null && order.bodegon_id !== undefined)
+    
+    if (bodegonOrders.length === 0) {
+      console.log('📭 No hay pedidos de bodegones')
+      return { orders: [], error: null }
+    }
+
+    // Enriquecer cada pedido con datos relacionados
+    const enrichedOrders = await Promise.all(
+      bodegonOrders.map(async (order: any) => {
+        try {
+          // Cargar items del pedido
+          const { data: orderItems } = await nuclearSelect(
+            'order_item',
+            '*',
+            { order_id: order.id }
+          )
+
+          // Cargar productos para cada item por separado
+          const enrichedOrderItems = await Promise.all(
+            (orderItems || []).map(async (item: any) => {
+              if (item.bodegon_product_id) {
+                const { data: product } = await nuclearSelect(
+                  'bodegon_products',
+                  'id, name, price, image_gallery_urls',
+                  { id: item.bodegon_product_id }
+                )
+                return { ...item, bodegon_products: product?.[0] || null }
+              }
+              return item
+            })
+          )
+
+          // Cargar pagos
+          const { data: payments } = await nuclearSelect(
+            'order_payments',
+            '*',
+            { order_id: order.id }
+          )
+
+          // Cargar datos del usuario
+          let profile = null
+          try {
+            const { data: userData, error: userError } = await nuclearSelect(
+              'users',
+              'id, name, email',
+              { id: order.customer_id }
+            )
+            profile = userData || null
+          } catch (err) {
+            console.warn('⚠️ Error cargando usuario:', order.customer_id, err)
+            // Fallback a datos por defecto
+            profile = [{
+              id: order.customer_id,
+              name: `Cliente ${order.customer_id.slice(0, 8)}`,
+              email: null
+            }]
+          }
+
+          // Cargar dirección de entrega
+          let customerAddress = null
+          if (order.delivery_address_id) {
+            console.log('🔍 Cargando dirección para ID:', order.delivery_address_id)
+            const { data: address, error: addressError } = await nuclearSelect(
+              'customer_addresses',
+              'id, address_line1, address_line2, city, state, label',
+              { id: order.delivery_address_id }
+            )
+            if (addressError) {
+              console.error('❌ Error cargando dirección:', addressError)
+            } else {
+              console.log('✅ Dirección cargada:', address)
+              customerAddress = address?.[0] || null
+              console.log('📍 Customer address final:', customerAddress)
+            }
+          } else {
+            console.log('⚠️ No hay delivery_address_id para el pedido:', order.id)
+          }
+
+          // Cargar bodegón
+          let bodegon = null
+          if (order.bodegon_id) {
+            const { data: bodegonData } = await nuclearSelect(
+              'bodegons',
+              'id, name, phone_number, address',
+              { id: order.bodegon_id }
+            )
+            bodegon = bodegonData?.[0] || null
+          }
+
+          return {
+            ...order,
+            order_item: enrichedOrderItems || [],
+            order_payments: payments || [],
+            users: profile?.[0] || null,
+            customer_addresses: customerAddress,
+            bodegons: bodegon
+          }
+        } catch (err) {
+          console.warn('⚠️ Error enriqueciendo pedido:', order.id, err)
+          return {
+            ...order,
+            order_item: [],
+            order_payments: [],
+            users: null,
+            customer_addresses: null,
+            bodegons: null
+          }
+        }
+      })
+    )
+
+    // Ordenar por fecha más reciente primero
+    const sortedOrders = enrichedOrders.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+
+    console.log('✅ Pedidos de bodegones cargados:', sortedOrders.length)
+    return { orders: sortedOrders as CompleteOrder[], error: null }
+    
+  } catch (error) {
+    console.error('💥 Error inesperado cargando pedidos:', error)
+    return { orders: [], error: 'Error inesperado cargando pedidos' }
   }
 }
 
-function getMetodoPagoIcon(metodo: Pedido['metodo_pago']) {
+function getMetodoPagoIcon(metodo: string) {
   switch (metodo) {
-    case 'pago_movil':
-      return { type: 'icon', component: Smartphone }
-    case 'transferencia_bancaria':
-      return { type: 'icon', component: Landmark }
-    case 'cuenta_internacional':
-      return { type: 'icon', component: Globe }
+    case 'pagomovil':
+      return Smartphone
+    case 'transferencia':
+      return Landmark
+    case 'zelle':
+    case 'banesco':
+      return Globe
+    default:
+      return Smartphone
   }
 }
 
@@ -151,19 +227,50 @@ interface BodegonesPedViewProps {
 }
 
 export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
-  const [pedidos, setPedidos] = useState<Pedido[]>(mockPedidos)
+  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>(pedidos)
+  const [filteredOrders, setFilteredOrders] = useState<CompleteOrder[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
+  // Cargar pedidos del sistema
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        console.log('🔍 Cargando pedidos de bodegones...')
+        const { orders, error: loadError } = await loadAllOrders()
+        
+        if (loadError) {
+          setError(loadError)
+          console.error('❌ Error cargando pedidos:', loadError)
+        } else {
+          setAllOrders(orders)
+          console.log('✅ Pedidos de bodegones cargados:', orders.length)
+        }
+      } catch (err) {
+        console.error('💥 Error inesperado:', err)
+        setError('Error inesperado al cargar pedidos')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadOrders()
+  }, [])
+
   // Agrupar pedidos por fecha
-  const pedidosAgrupados = filteredPedidos.reduce((acc, pedido) => {
-    const fecha = pedido.fecha_pedido
+  const pedidosAgrupados = filteredOrders.reduce((acc, pedido) => {
+    if (!pedido?.created_at) return acc
+    const fecha = pedido.created_at.split('T')[0]
     if (!acc[fecha]) {
       acc[fecha] = []
     }
     acc[fecha].push(pedido)
     return acc
-  }, {} as Record<string, Pedido[]>)
+  }, {} as Record<string, CompleteOrder[]>)
 
   // Ordenar fechas (más recientes primero)
   const fechasOrdenadas = Object.keys(pedidosAgrupados).sort((a, b) => 
@@ -172,58 +279,77 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
 
   // Filtrar pedidos
   useEffect(() => {
-    let filtered = pedidos
+    let filtered = allOrders
     
     if (searchTerm) {
-      filtered = pedidos.filter(pedido => 
-        pedido.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pedido.bodegon_nombre.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = allOrders.filter(pedido => 
+        pedido.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (pedido.bodegons?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (pedido.users?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
     
-    setFilteredPedidos(filtered)
-  }, [searchTerm, pedidos])
+    setFilteredOrders(filtered)
+  }, [searchTerm, allOrders])
 
   // Función para manejar el click en una card y convertir datos
-  const handlePedidoClick = (pedido: Pedido) => {
+  const handlePedidoClick = (pedido: CompleteOrder) => {
     if (!onViewPedido) return
     
+    // Debug: Ver qué datos de dirección tenemos
+    console.log('🏠 Datos de dirección:', {
+      customer_addresses: pedido.customer_addresses,
+      address_line1: pedido.customer_addresses?.address_line1,
+      address_line2: pedido.customer_addresses?.address_line2,
+      city: pedido.customer_addresses?.city,
+      state: pedido.customer_addresses?.state
+    })
+
+    // Debug: Ver el array de componentes de dirección
+    const addressComponents = [
+      pedido.customer_addresses?.address_line1,
+      pedido.customer_addresses?.address_line2,
+      pedido.customer_addresses?.city,
+      pedido.customer_addresses?.state
+    ]
+    console.log('📍 Componentes de dirección:', addressComponents)
+    console.log('📍 Componentes filtrados:', addressComponents.filter(Boolean))
+    console.log('📍 Dirección final:', addressComponents.filter(Boolean).join(', '))
+
     // Convertir datos del pedido al formato que espera DetallePedidoView
-    const detallePedido = {
+    const detallePedido: PedidoForDetail = {
       id: pedido.id,
-      numero: pedido.numero,
-      fecha: pedido.fecha_pedido,
-      hora: pedido.hora_pedido,
+      numero: pedido.order_number,
+      fecha: pedido.created_at.split('T')[0],
+      hora: format(parseISO(pedido.created_at), 'HH:mm'),
       cliente: {
-        nombre: 'Cliente Usuario', // Mock data - vendrá de BD
-        email: 'cliente@example.com',
-        direccion: '123 Calle Principal, Ciudad'
+        nombre: pedido.users?.name || 'Cliente',
+        email: pedido.users?.email || undefined,
+        telefono: pedido.customer_phone || undefined,
+        direccion: pedido.customer_addresses ? 
+          [
+            pedido.customer_addresses.address_line1,
+            pedido.customer_addresses.address_line2,
+            pedido.customer_addresses.city,
+            pedido.customer_addresses.state
+          ].filter(Boolean).join(', ') : undefined
       },
-      metodoPago: pedido.metodo_pago,
-      estado: pedido.estado,
-      tipoEntrega: Math.random() > 0.5 ? 'domicilio' : 'pickup', // Mock random
-      direccionEntrega: '456 Avenida Principal, Centro, Ciudad 12345',
-      subtotal: pedido.total * 0.9, // Mock calculation
-      envio: pedido.total * 0.1,    // Mock calculation
-      total: pedido.total,
-      productos: [
-        // Mock productos - vendrán de BD
-        {
-          id: '1',
-          nombre: 'Producto Ejemplo 1',
-          cantidad: 2,
-          precio: pedido.total * 0.4,
-          total: pedido.total * 0.8
-        },
-        {
-          id: '2', 
-          nombre: 'Producto Ejemplo 2',
-          cantidad: 1,
-          precio: pedido.total * 0.2,
-          total: pedido.total * 0.2
-        }
-      ],
-      bodegon: pedido.bodegon_nombre
+      metodoPago: pedido.order_payments?.[0]?.payment_method || 'pagomovil',
+      estado: pedido.status,
+      tipoEntrega: pedido.delivery_mode === 'delivery' ? 'domicilio' : 'pickup',
+      direccionEntrega: undefined, // Ya se muestra en cliente.direccion
+      subtotal: pedido.subtotal,
+      envio: pedido.shipping_cost,
+      total: pedido.total_amount,
+      productos: (pedido.order_item || []).map(item => ({
+        id: item.id,
+        nombre: item.bodegon_products?.name || item.name_snapshot || 'Producto',
+        cantidad: item.quantity,
+        precio: item.unit_price,
+        total: item.quantity * item.unit_price
+      })),
+      bodegon: pedido.bodegons?.name || 'Bodegón',
+      verification_code: pedido.verification_code
     }
     
     onViewPedido(detallePedido)
@@ -279,71 +405,111 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
 
       {/* Lista de Pedidos */}
       <div className="space-y-6">
-        {fechasOrdenadas.length === 0 && (
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex-1 flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <Loader2 className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
+              <p className="text-gray-600 text-sm">Cargando pedidos...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && (
+          <div className="flex-1 flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+                <Package className="w-8 h-8 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Error cargando pedidos</h3>
+                <p className="text-gray-600 text-sm">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && !error && fechasOrdenadas.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             No se encontraron pedidos
           </div>
         )}
         
-        {fechasOrdenadas.map(fecha => (
-          <div key={fecha} className="space-y-4">
-            {/* Separador de fecha */}
-            <h3 className="text-sm font-medium text-muted-foreground px-1">
-              {formatFecha(fecha)}
-            </h3>
-            
-            {/* Pedidos de esta fecha */}
-            <div className="space-y-2">
-              {pedidosAgrupados[fecha].map(pedido => {
-                const estadoConfig = getEstadoConfig(pedido.estado)
-                const metodoPagoIcon = getMetodoPagoIcon(pedido.metodo_pago)
-                
-                return (
-                  <Card 
-                    key={pedido.id} 
-                    className="hover:shadow-md transition-shadow cursor-pointer py-0"
-                    onClick={() => handlePedidoClick(pedido)}
-                  >
-                    <CardContent className="p-0">
-                      <div className="flex items-center justify-between p-3">
-                        <div className="flex items-center space-x-3">
-                          {/* Icono de método de pago en contenedor rectangular */}
-                          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100">
-                            {React.createElement(metodoPagoIcon.component, { className: "h-4 w-4 text-gray-600" })}
-                          </div>
-                          
-                          {/* Info del pedido */}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 mb-1">
-                              {pedido.numero}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Badge className={cn("text-xs border-0", estadoConfig.badgeColor)}>
-                                {estadoConfig.label}
-                              </Badge>
-                              <span className="text-muted-foreground">•</span>
-                              <p className="text-xs text-muted-foreground">
-                                {pedido.hora_pedido}
+        {/* Orders list */}
+        {!isLoading && !error && fechasOrdenadas.length > 0 && (
+          fechasOrdenadas.map(fecha => (
+            <div key={fecha} className="space-y-4">
+              {/* Separador de fecha */}
+              <h3 className="text-sm font-medium text-muted-foreground px-1">
+                {formatFecha(fecha)}
+              </h3>
+              
+              {/* Pedidos de esta fecha */}
+              <div className="space-y-2">
+                {pedidosAgrupados[fecha].map(pedido => {
+                  if (!pedido?.id) return null
+                  
+                  const estadoConfig = mapDatabaseStatusToUI(pedido.status || 'pending')
+                  const paymentMethod = pedido.order_payments?.[0]?.payment_method || 'pagomovil'
+                  const MetodoPagoIcon = getMetodoPagoIcon(paymentMethod)
+                  const horaCreacion = pedido.created_at ? (() => {
+                    try {
+                      return format(parseISO(pedido.created_at), 'HH:mm')
+                    } catch (err) {
+                      console.error('Error formateando hora:', pedido.created_at, err)
+                      return '--:--'
+                    }
+                  })() : '--:--'
+                  
+                  return (
+                    <Card 
+                      key={pedido.id} 
+                      className="hover:shadow-md transition-shadow cursor-pointer py-0"
+                      onClick={() => handlePedidoClick(pedido)}
+                    >
+                      <CardContent className="p-0">
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex items-center space-x-3">
+                            {/* Icono de método de pago en contenedor rectangular */}
+                            <div className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100">
+                              <MetodoPagoIcon className="h-4 w-4 text-gray-600" />
+                            </div>
+                            
+                            {/* Info del pedido */}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 mb-1">
+                                {pedido.order_number || 'Sin número'}
                               </p>
+                              <div className="flex items-center gap-2">
+                                <Badge className={cn("text-xs border-0", estadoConfig.variant)}>
+                                  {estadoConfig.label}
+                                </Badge>
+                                <span className="text-muted-foreground">•</span>
+                                <p className="text-xs text-muted-foreground">
+                                  {horaCreacion}
+                                </p>
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Monto y chevron */}
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">
+                              ${(pedido.total_amount || 0).toFixed(2)}
+                            </p>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         </div>
-                        
-                        {/* Monto y chevron */}
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold">
-                            ${pedido.total.toFixed(2)}
-                          </p>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                      </CardContent>
+                    </Card>
+                  )
+                }).filter(Boolean)}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   )

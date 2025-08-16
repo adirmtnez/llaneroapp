@@ -269,18 +269,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: new Error('No user found') }
       }
 
-      const { error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('id', user.auth_user.id)
+      // ✅ Usar Nuclear Client V2.0 para mayor estabilidad
+      const { nuclearUpdate } = await import('@/utils/nuclear-client')
+      
+      console.log('📝 Actualizando perfil con Nuclear Client V2.0:', updates)
+      
+      const { error } = await nuclearUpdate(
+        'users',
+        user.auth_user.id,
+        updates
+      )
 
       if (error) {
+        console.error('❌ Error actualizando perfil:', error)
         return { error }
       }
 
+      console.log('✅ Perfil actualizado exitosamente')
+      
+      // Recargar perfil para obtener datos actualizados
       await loadUserProfile(user.auth_user)
       return { error: null }
     } catch (error) {
+      console.error('💥 Error inesperado actualizando perfil:', error)
       return { error: error as Error }
     }
   }

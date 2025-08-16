@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { User, Loader2, ChevronDown } from 'lucide-react'
+import { User, Loader2, ChevronDown, AlertTriangle } from 'lucide-react'
 import { MenuDrawer } from '../menu-drawer'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -38,13 +38,15 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
   useEffect(() => {
     if (open && user) {
       const phoneNumber = user.profile?.phone_number || ''
+      const phoneDialFromProfile = user.profile?.phone_dial || ''
       
-      // Separar prefijo y número si existe un teléfono
-      let phonePrefix = ''
-      let phoneNumberOnly = ''
+      // Priorizar datos separados si existen
+      let phonePrefix = phoneDialFromProfile
+      let phoneNumberOnly = phoneNumber
       
-      if (phoneNumber) {
-        // Buscar si el número inicia con alguno de los prefijos
+      // Si no hay phone_dial pero hay phone_number con prefijo concatenado (legacy)
+      if (!phoneDialFromProfile && phoneNumber) {
+        // Fallback: buscar si el número inicia con alguno de los prefijos
         const foundPrefix = phoneOptions.find(option => phoneNumber.startsWith(option.value))
         if (foundPrefix) {
           phonePrefix = foundPrefix.value
@@ -102,16 +104,23 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
     setIsLoading(true)
 
     try {
-      // Construir número completo si se proporciona
-      const fullPhoneNumber = formData.phoneNumber 
-        ? `${formData.phonePrefix}${formData.phoneNumber.trim()}`
-        : ''
+      // Preparar datos de actualización
+      const updateData: any = {
+        name: formData.name.trim()
+      }
+      
+      // Guardar phone_dial y phone_number por separado
+      if (formData.phoneNumber && formData.phonePrefix) {
+        updateData.phone_number = formData.phoneNumber.trim() // Solo el número sin prefijo
+        updateData.phone_dial = formData.phonePrefix // Solo el prefijo
+      } else {
+        // Si se borra el teléfono, limpiar ambos campos
+        updateData.phone_number = ''
+        updateData.phone_dial = ''
+      }
       
       // Actualizar perfil usando el método del contexto
-      const { error } = await updateProfile({
-        name: formData.name.trim(),
-        phone_number: fullPhoneNumber
-      })
+      const { error } = await updateProfile(updateData)
 
       if (error) {
         toast.error('Error al actualizar la información')
@@ -134,9 +143,9 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
       onOpenChange={onOpenChange}
       title="Información personal"
     >
-      <div className="space-y-6 py-6">
+      <div className="space-y-3 py-6 px-4">
         {/* Formulario */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Campo Nombre */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium text-gray-700">
@@ -148,16 +157,21 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Ingresa tu nombre completo"
-              className="h-11 md:h-10 text-base md:text-sm"
+              className="min-h-[56px] text-base bg-white"
               disabled={isLoading}
             />
           </div>
 
           {/* Campo Teléfono */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">
-              Teléfono
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-gray-700">
+                Teléfono
+              </Label>
+              {(!formData.phonePrefix || !formData.phoneNumber) && (
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+              )}
+            </div>
             <div className="flex gap-2">
               {/* Dropdown de prefijo */}
               <Select
@@ -165,7 +179,7 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
                 onValueChange={handlePrefixChange}
                 disabled={isLoading}
               >
-                <SelectTrigger className="w-24 h-11 md:h-10 text-base md:text-sm">
+                <SelectTrigger className="w-24 min-h-[56px] text-base bg-white">
                   <SelectValue placeholder="0414" />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,7 +201,7 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
                   handleInputChange('phoneNumber', value)
                 }}
                 placeholder="1234567"
-                className="flex-1 h-11 md:h-10 text-base md:text-sm"
+                className="flex-1 min-h-[56px] text-base bg-white"
                 disabled={isLoading}
                 maxLength={7}
               />
@@ -203,7 +217,7 @@ export function PersonalInfoDrawer({ open, onOpenChange }: PersonalInfoDrawerPro
           <Button
             onClick={handleSave}
             disabled={isLoading || !formData.name.trim()}
-            className="w-full h-11 md:h-10 text-base md:text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold transition-colors"
+            className="w-full min-h-[56px] text-base bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-semibold transition-colors"
           >
             {isLoading ? (
               <div className="flex items-center gap-2">

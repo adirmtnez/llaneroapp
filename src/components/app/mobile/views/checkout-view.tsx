@@ -152,6 +152,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   const [isCreatingOrder, setIsCreatingOrder] = useState(false)
   const [orderCreated, setOrderCreated] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   
   // Animación de entrada
   useEffect(() => {
@@ -223,10 +224,10 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
         const { data, error } = await nuclearSelect(
           'order_item',
           `*, 
-           bodegon_products!bodegon_product_item(id, name, price, image_gallery_urls)`,
+           bodegon_products(id, name, price, image_gallery_urls)`,
           { 
             created_by: user.auth_user.id,
-            order: null // Solo items que no están en un pedido confirmado
+            order_id: null // Solo items que no están en un pedido confirmado
           }
         )
 
@@ -238,9 +239,9 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
 
         // Transformar a formato CartItem
         const transformedItems: CartItem[] = (data || []).map((item: any) => ({
-          id: item.bodegon_products?.id || item.id,
-          name: item.bodegon_products?.name || 'Producto sin nombre',
-          price: item.bodegon_products?.price || 0,
+          id: item.bodegon_products?.id || item.bodegon_product_id || item.id,
+          name: item.bodegon_products?.name || item.name_snapshot || 'Producto sin nombre',
+          price: item.bodegon_products?.price || item.unit_price || 0,
           quantity: item.quantity || 1,
           image: item.bodegon_products?.image_gallery_urls?.[0] || ''
         }))
@@ -267,15 +268,15 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   ]
   
   // Función para aplicar cupón (simulación)
-  useEffect(() => {
-    // Simular que se aplicó un cupón (puedes modificar esto)
-    // Por ejemplo, si hay productos en el carrito, aplicar el primer cupón
-    if (cartItems.length > 0 && !appliedCoupon && !loadingCart) {
-      // Simular aplicar cupón de bienvenida
-      setAppliedCoupon(availableCoupons[2]) // WELCOME15
-      console.log('🎫 Cupón aplicado automáticamente:', availableCoupons[2])
-    }
-  }, [cartItems.length, appliedCoupon, loadingCart])
+  // useEffect(() => {
+  //   // Simular que se aplicó un cupón (puedes modificar esto)
+  //   // Por ejemplo, si hay productos en el carrito, aplicar el primer cupón
+  //   if (cartItems.length > 0 && !appliedCoupon && !loadingCart) {
+  //     // Simular aplicar cupón de bienvenida
+  //     setAppliedCoupon(availableCoupons[2]) // WELCOME15
+  //     console.log('🎫 Cupón aplicado automáticamente:', availableCoupons[2])
+  //   }
+  // }, [cartItems.length, appliedCoupon, loadingCart])
   
   // Cargar datos de teléfono del usuario automáticamente (solo una vez)
   useEffect(() => {
@@ -313,7 +314,7 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   
   // Calcular totales del carrito con cupón de descuento
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const shippingCost = deliveryMode === 'delivery' ? 2.00 : 0 // Envío gratis para pickup
+  const shippingCost = 0 // Envío gratis para todos los pedidos
   
   // Calcular descuento del cupón
   const couponDiscount = appliedCoupon 
@@ -446,30 +447,75 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
   }
 
   const handleFinalSubmit = async () => {
+    if (!user?.auth_user?.id) {
+      toast.error('Error: Usuario no autenticado')
+      return
+    }
+
+    // Validar dirección para delivery
+    if (deliveryMode === 'delivery' && !selectedAddress) {
+      toast.error('Debe seleccionar una dirección de entrega')
+      return
+    }
+
     setIsCreatingOrder(true)
     
-    console.log('✅ Realizar pedido final', {
-      deliveryMode,
-      selectedAddress,
-      selectedPayment,
-      contactData,
-      paymentStepsData,
-      cartItems,
-      total
-    })
-    
-    // Simular creación del pedido (2-3 segundos)
-    await new Promise(resolve => setTimeout(resolve, 2500))
-    
-    // Generar número de pedido aleatorio
-    const orderNum = `LL${Date.now().toString().slice(-6)}`
-    setOrderNumber(orderNum)
-    
-    setIsCreatingOrder(false)
-    setShowPaymentSteps(false) // Cerrar el drawer
-    setOrderCreated(true) // Mostrar vista de éxito independiente
-    
-    // TODO: Implementar envío real del pedido a la base de datos
+    try {
+      console.log('🚀 Iniciando creación de pedido real')
+
+      // Importar función de creación de pedidos
+      const { createCompleteOrder } = await import('@/utils/order-utils')
+
+      // Preparar datos del pedido
+      const orderData = {
+        customerId: user.auth_user.id,
+        bodegonId: user.profile?.preferred_bodegon || null, // Usar bodegón preferido del usuario
+        deliveryMode,
+        deliveryAddressId: deliveryMode === 'delivery' ? selectedAddress : null,
+        subtotal,
+        shippingCost,
+        discountAmount: couponDiscount,
+        totalAmount: total,
+        couponCode: appliedCoupon?.code,
+        customerPhone: `${contactData.phonePrefix}${contactData.phoneNumber}`,
+        notes: '',
+        paymentData: {
+          paymentMethod: selectedPayment,
+          bankDestination: paymentStepsData.selectedBank,
+          bankOrigin: paymentStepsData.issuingBank,
+          documentType: paymentStepsData.documentType,
+          documentNumber: paymentStepsData.documentNumber,
+          paymentReference: paymentStepsData.paymentReference,
+          receiptUrl: paymentStepsData.receipt?.name || undefined
+        }
+      }
+
+      console.log('📋 Datos del pedido preparados:', orderData)
+
+      // Crear el pedido completo
+      const result = await createCompleteOrder(orderData)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Error al crear el pedido')
+      }
+
+      console.log('✅ Pedido creado exitosamente:', result)
+
+      // Actualizar estados con los datos reales del pedido
+      setOrderNumber(result.orderNumber || '')
+      setVerificationCode(result.verificationCode || '')
+      
+      setIsCreatingOrder(false)
+      setShowPaymentSteps(false)
+      setOrderCreated(true)
+
+      toast.success('¡Pedido creado exitosamente!')
+
+    } catch (error) {
+      console.error('❌ Error creando pedido:', error)
+      toast.error(error instanceof Error ? error.message : 'Error al procesar el pedido')
+      setIsCreatingOrder(false)
+    }
   }
 
   // Manejar envío de datos de contacto
@@ -552,6 +598,17 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
               <div className="bg-white rounded-xl p-3">
                 <p className="text-xs text-gray-600 mb-1">Confirmación por WhatsApp</p>
                 <p className="font-semibold text-gray-900 text-sm">{contactData.phonePrefix} {contactData.phoneNumber}</p>
+              </div>
+            </div>
+
+            {/* Código de verificación para entrega */}
+            <div className="bg-orange-50 rounded-2xl p-4 mb-4 border-2 border-orange-200">
+              <div className="text-center">
+                <p className="text-xs text-orange-700 font-medium mb-1">🔑 Código de entrega</p>
+                <p className="text-3xl font-bold text-orange-800 mb-2 tracking-widest">{verificationCode}</p>
+                <p className="text-xs text-orange-600 leading-relaxed">
+                  Proporciona este código al repartidor para confirmar tu entrega
+                </p>
               </div>
             </div>
 

@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { 
   User, 
   MapPin, 
-  Bell, 
   HelpCircle,
   LogOut,
   ChevronRight,
@@ -22,7 +21,6 @@ import { useAuth } from '@/contexts/auth-context'
 import { PersonalInfoDrawer } from '../drawers/personal-info-drawer'
 import { ChangePasswordDrawer } from '../drawers/change-password-drawer'
 import { CouponsDrawer } from '../drawers/coupons-drawer'
-import { NotificationsDrawer } from '../drawers/notifications-drawer'
 import { AddressesDrawer } from '../drawers/addresses-drawer'
 
 // Función para obtener iniciales del nombre
@@ -34,40 +32,6 @@ const getInitials = (name: string) => {
     .toUpperCase()
     .slice(0, 2)
 }
-
-// Opciones del menú principal
-const mainMenuOptions = [
-  {
-    icon: User,
-    label: 'Información personal',
-    hasWarning: true,
-    action: 'personal-info'
-  },
-  {
-    icon: Key,
-    label: 'Cambiar contraseña',
-    hasWarning: false,
-    action: 'change-password'
-  },
-  {
-    icon: Tag,
-    label: 'Cupones',
-    hasWarning: false,
-    action: 'cupones'
-  },
-  {
-    icon: Bell,
-    label: 'Notificaciones',
-    hasWarning: false,
-    action: 'notifications'
-  },
-  {
-    icon: MapPin,
-    label: 'Administrar direcciones',
-    hasWarning: false,
-    action: 'addresses'
-  }
-]
 
 // Opciones secundarias y políticas
 const secondaryMenuOptions = [
@@ -109,11 +73,41 @@ export function CuentaView() {
   const { user, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   
+  // Verificar si falta información telefónica
+  const hasPhoneWarning = !user?.profile?.phone_dial || !user?.profile?.phone_number
+  
+  // Generar opciones del menú principal con advertencias dinámicas
+  const mainMenuOptions = [
+    {
+      icon: User,
+      label: 'Información personal',
+      hasWarning: hasPhoneWarning,
+      action: 'personal-info'
+    },
+    {
+      icon: Key,
+      label: 'Cambiar contraseña',
+      hasWarning: false,
+      action: 'change-password'
+    },
+    {
+      icon: Tag,
+      label: 'Cupones',
+      hasWarning: false,
+      action: 'cupones'
+    },
+    {
+      icon: MapPin,
+      label: 'Administrar direcciones',
+      hasWarning: false,
+      action: 'addresses'
+    }
+  ]
+  
   // Estados para controlar los drawers
   const [showPersonalInfo, setShowPersonalInfo] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showCoupons, setShowCoupons] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [showAddresses, setShowAddresses] = useState(false)
 
   const handleLogout = async () => {
@@ -137,9 +131,6 @@ export function CuentaView() {
         break
       case 'cupones':
         setShowCoupons(true)
-        break
-      case 'notifications':
-        setShowNotifications(true)
         break
       case 'addresses':
         setShowAddresses(true)
@@ -324,11 +315,6 @@ export function CuentaView() {
       <CouponsDrawer
         open={showCoupons}
         onOpenChange={setShowCoupons}
-      />
-      
-      <NotificationsDrawer
-        open={showNotifications}
-        onOpenChange={setShowNotifications}
       />
       
       <AddressesDrawer
