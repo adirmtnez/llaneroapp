@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { ArrowLeftIcon, CreditCard, Smartphone, Landmark, Globe, CheckCircle, Clock, Package, Truck, Home, MapPin, Printer, Edit, User, X, ChevronDown } from "lucide-react"
+import { ArrowLeftIcon, CreditCard, Smartphone, Landmark, Globe, CheckCircle, Clock, Package, Truck, Home, MapPin, Printer, Edit, User, X, ChevronDown, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { 
   mapDatabaseStatusToUI,
   mapPaymentMethod
 } from '@/utils/orders-service'
-import { nuclearUpdate } from '@/utils/nuclear-client'
+import { nuclearUpdate, nuclearDelete } from '@/utils/nuclear-client'
 
 // Interfaces
 interface ProductoPedido {
@@ -64,6 +65,7 @@ interface DetallePedidoViewProps {
   onEdit?: () => void
   onPrint?: () => void
   onPedidoUpdate?: (updatedPedido: DetallePedido) => void
+  onPedidoDelete?: (deletedPedidoId: string) => void
 }
 
 // Mock data de repartidores
@@ -136,13 +138,19 @@ export function DetallePedidoView({
   pedido,
   onEdit,
   onPrint,
-  onPedidoUpdate
+  onPedidoUpdate,
+  onPedidoDelete
 }: DetallePedidoViewProps) {
   // Estados para el modal de edición
   const [showEditModal, setShowEditModal] = useState(false)
   const [editEstado, setEditEstado] = useState<string>('')
   const [editRepartidor, setEditRepartidor] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Estados para el modal de eliminación
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   
   // Estado local del pedido para actualizaciones en tiempo real
   const [localPedido, setLocalPedido] = useState<DetallePedido | null>(null)
@@ -158,6 +166,13 @@ export function DetallePedidoView({
       setLocalPedido(pedido)
     }
   }, [pedido])
+
+  // Limpiar texto de confirmación cuando se cierra el modal
+  useEffect(() => {
+    if (!showDeleteModal) {
+      setDeleteConfirmText('')
+    }
+  }, [showDeleteModal])
   
   // Usar el pedido local si existe, sino el proporcionado
   const pedidoData = localPedido || pedido
@@ -311,6 +326,98 @@ export function DetallePedidoView({
       toast.error('Error inesperado al actualizar el pedido')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // Función para eliminar el pedido
+  const handleDeletePedido = async () => {
+    if (deleteConfirmText !== pedidoData.numero) {
+      toast.error('El número de pedido no coincide')
+      return
+    }
+
+    setIsDeleting(true)
+    
+    try {
+      console.log('🗑️ Eliminando pedido:', pedidoData.id)
+      
+      const { nuclearSelect } = await import('@/utils/nuclear-client')
+      
+      // 1. Eliminar order_tracking relacionados (si existe)
+      console.log('🗑️ Eliminando order_tracking...')
+      try {
+        const { data: orderTracking } = await nuclearSelect('order_tracking', 'id', { order_id: pedidoData.id })
+        if (orderTracking && orderTracking.length > 0) {
+          for (const tracking of orderTracking) {
+            const { error: trackingError } = await nuclearDelete('order_tracking', tracking.id)
+            if (trackingError) {
+              console.error('❌ Error eliminando order_tracking:', tracking.id, trackingError)
+            }
+          }
+        }
+      } catch (err) {
+        console.log('ℹ️ Tabla order_tracking no existe o no hay registros')
+      }
+      
+      // 2. Eliminar order_items relacionados
+      console.log('🗑️ Eliminando order_items...')
+      const { data: orderItems } = await nuclearSelect('order_item', 'id', { order_id: pedidoData.id })
+      
+      if (orderItems && orderItems.length > 0) {
+        for (const item of orderItems) {
+          const { error: itemError } = await nuclearDelete('order_item', item.id)
+          if (itemError) {
+            console.error('❌ Error eliminando order_item:', item.id, itemError)
+            toast.error(`Error eliminando producto del pedido`)
+            return
+          }
+        }
+        console.log(`✅ Eliminados ${orderItems.length} order_items`)
+      }
+      
+      // 3. Eliminar order_payments relacionados
+      console.log('🗑️ Eliminando order_payments...')
+      const { data: orderPayments } = await nuclearSelect('order_payments', 'id', { order_id: pedidoData.id })
+      
+      if (orderPayments && orderPayments.length > 0) {
+        for (const payment of orderPayments) {
+          const { error: paymentError } = await nuclearDelete('order_payments', payment.id)
+          if (paymentError) {
+            console.error('❌ Error eliminando order_payment:', payment.id, paymentError)
+            toast.error(`Error eliminando información de pago`)
+            return
+          }
+        }
+        console.log(`✅ Eliminados ${orderPayments.length} order_payments`)
+      }
+      
+      // 4. Finalmente, eliminar el pedido principal
+      console.log('🗑️ Eliminando pedido principal...')
+      const { error: orderError } = await nuclearDelete('orders', pedidoData.id)
+      
+      if (orderError) {
+        console.error('❌ Error eliminando pedido:', orderError)
+        toast.error(`Error al eliminar el pedido: ${orderError}`)
+        return
+      }
+      
+      console.log('✅ Pedido eliminado exitosamente')
+      toast.success(`Pedido ${pedidoData.numero} eliminado exitosamente`)
+      setShowDeleteModal(false)
+      
+      // Notificar al componente padre
+      if (onPedidoDelete) {
+        onPedidoDelete(pedidoData.id)
+      }
+      
+      // Regresar a la lista de pedidos
+      onBack()
+      
+    } catch (error) {
+      console.error('💥 Error inesperado eliminando pedido:', error)
+      toast.error('Error inesperado al eliminar el pedido')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -641,24 +748,38 @@ export function DetallePedidoView({
 
       {/* Fixed Footer Bar */}
       <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white border-t border-gray-200 p-4 z-10">
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-between gap-3">
+          {/* Botón de eliminar a la izquierda */}
           <Button 
             type="button" 
-            variant="outline" 
-            onClick={handlePrint}
+            variant="destructive"
+            onClick={() => setShowDeleteModal(true)}
             className="h-11 md:h-10 text-base md:text-sm"
           >
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir
+            <Trash2 className="h-4 w-4 mr-2" />
+            Eliminar
           </Button>
-          <Button 
-            type="button" 
-            onClick={handleEdit}
-            className="h-11 md:h-10 text-base md:text-sm"
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
+          
+          {/* Botones principales a la derecha */}
+          <div className="flex gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handlePrint}
+              className="h-11 md:h-10 text-base md:text-sm"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleEdit}
+              className="h-11 md:h-10 text-base md:text-sm"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -723,6 +844,131 @@ export function DetallePedidoView({
                 className="h-10 text-sm"
               >
                 {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal/Drawer de Confirmación de Eliminación */}
+      {isMobile ? (
+        <Drawer open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+          <DrawerContent className="px-4">
+            <DrawerHeader>
+              <DrawerTitle className="text-red-600">Eliminar Pedido {pedidoData.numero}</DrawerTitle>
+              <DrawerDescription>
+                Esta acción no se puede deshacer. Se eliminarán todos los datos relacionados con este pedido.
+              </DrawerDescription>
+            </DrawerHeader>
+            
+            <div className="px-4 pb-6 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-red-700 mb-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="font-medium text-sm">¡Cuidado!</span>
+                </div>
+                <p className="text-sm text-red-600">
+                  Se eliminarán permanentemente:
+                </p>
+                <ul className="text-xs text-red-600 mt-2 ml-4 list-disc space-y-1">
+                  <li>El pedido principal</li>
+                  <li>Todos los productos del pedido (order_items)</li>
+                  <li>Información de pagos (order_payments)</li>
+                  <li>Seguimiento del pedido (order_tracking)</li>
+                </ul>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirm-delete">
+                  Para confirmar, escribe el número del pedido: <span className="font-mono font-bold">{pedidoData.numero}</span>
+                </Label>
+                <Input
+                  id="confirm-delete"
+                  type="text"
+                  placeholder={`Escribe ${pedidoData.numero}`}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="h-12 text-base"
+                />
+              </div>
+            </div>
+            
+            <DrawerFooter className="px-4 pb-4">
+              <div className="flex gap-3">
+                <DrawerClose asChild>
+                  <Button variant="outline" className="flex-1 h-11 text-base">
+                    Cancelar
+                  </Button>
+                </DrawerClose>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDeletePedido}
+                  disabled={isDeleting || deleteConfirmText !== pedidoData.numero}
+                  className="flex-1 h-11 text-base"
+                >
+                  {isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}
+                </Button>
+              </div>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Eliminar Pedido {pedidoData.numero}</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Se eliminarán todos los datos relacionados con este pedido.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-red-700 mb-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="font-medium text-sm">¡Cuidado!</span>
+                </div>
+                <p className="text-sm text-red-600">
+                  Se eliminarán permanentemente:
+                </p>
+                <ul className="text-xs text-red-600 mt-2 ml-4 list-disc space-y-1">
+                  <li>El pedido principal</li>
+                  <li>Todos los productos del pedido (order_items)</li>
+                  <li>Información de pagos (order_payments)</li>
+                  <li>Seguimiento del pedido (order_tracking)</li>
+                </ul>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirm-delete-desktop">
+                  Para confirmar, escribe el número del pedido: <span className="font-mono font-bold">{pedidoData.numero}</span>
+                </Label>
+                <Input
+                  id="confirm-delete-desktop"
+                  type="text"
+                  placeholder={`Escribe ${pedidoData.numero}`}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="h-10 text-sm"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDeleteModal(false)}
+                className="h-10 text-sm"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleDeletePedido}
+                disabled={isDeleting || deleteConfirmText !== pedidoData.numero}
+                className="h-10 text-sm"
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}
               </Button>
             </div>
           </DialogContent>

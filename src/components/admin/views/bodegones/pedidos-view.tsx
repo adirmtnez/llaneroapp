@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Filter, Download, Smartphone, Landmark, Globe, Clock, CheckCircle, Truck, Package, ChevronRight, Loader2 } from "lucide-react"
+import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { 
-  loadUserOrders, 
   mapDatabaseStatusToUI,
   mapPaymentMethod,
   type CompleteOrder 
@@ -223,41 +222,40 @@ function formatFecha(fecha: string) {
 }
 
 interface BodegonesPedViewProps {
-  onViewPedido?: (pedido: any) => void
+  onViewPedido?: (pedido: PedidoForDetail) => void
 }
 
 export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
-  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<CompleteOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  // Cargar pedidos del sistema
-  useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        
-        console.log('🔍 Cargando pedidos de bodegones...')
-        const { orders, error: loadError } = await loadAllOrders()
-        
-        if (loadError) {
-          setError(loadError)
-          console.error('❌ Error cargando pedidos:', loadError)
-        } else {
-          setAllOrders(orders)
-          console.log('✅ Pedidos de bodegones cargados:', orders.length)
-        }
-      } catch (err) {
-        console.error('💥 Error inesperado:', err)
-        setError('Error inesperado al cargar pedidos')
-      } finally {
-        setIsLoading(false)
+  // Función para cargar pedidos
+  const loadOrders = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const { orders, error: loadError } = await loadAllOrders()
+      
+      if (loadError) {
+        setError(loadError)
+        console.error('❌ Error cargando pedidos:', loadError)
+      } else {
+        setAllOrders(orders)
+        console.log('✅ Pedidos cargados:', orders.length)
       }
+    } catch (err) {
+      console.error('💥 Error inesperado:', err)
+      setError('Error inesperado al cargar pedidos')
+    } finally {
+      setIsLoading(false)
     }
-
+  }
+  
+  // Cargar pedidos al montar componente
+  useEffect(() => {
     loadOrders()
   }, [])
 
@@ -383,6 +381,18 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
 
           {/* Actions */}
           <div className="flex gap-2 sm:ml-auto">
+            {/* Botón de refresh manual */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 md:h-8 text-base md:text-sm"
+              onClick={loadOrders}
+              disabled={isLoading}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+              Recargar
+            </Button>
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -401,6 +411,7 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
             </Button>
           </div>
         </div>
+
       </div>
 
       {/* Lista de Pedidos */}
