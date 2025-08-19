@@ -1,19 +1,22 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw, ShoppingBag } from "lucide-react"
+import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw, ShoppingBag, Wifi, WifiOff, Loader } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { toast } from 'sonner'
 import { 
   mapDatabaseStatusToUI,
   mapPaymentMethod,
-  type CompleteOrder 
+  type CompleteOrder,
+  loadUserOrders
 } from '@/utils/orders-service'
+import { useSupabaseRealtimeOrders } from '@/hooks/use-supabase-realtime-orders'
 
 // Interfaces para compatibilidad con el detalle view
 interface PedidoForDetail {
@@ -225,26 +228,101 @@ interface BodegonesPedViewProps {
   onViewPedido?: (pedido: PedidoForDetail) => void
 }
 
+// 🔊 Función para reproducir sonido de notificación
+const playNotificationSound = () => {
+  try {
+    // Crear sonido de notificación programáticamente
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    // Configurar sonido (tipo campana suave)
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime) // Frecuencia alta
+    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1) // Bajar frecuencia
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime) // Volumen moderado
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5) // Fade out
+    
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.5) // Duración 0.5s
+    
+  } catch (error) {
+    console.log('🔇 Navegador no soporta Web Audio API o audio bloqueado:', error)
+  }
+}
+
 export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
   const [searchTerm, setSearchTerm] = useState('')
-  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<CompleteOrder[]>([])
+  
+  // 🚀 USAR SISTEMA HÍBRIDO REALTIME - Admin ve TODOS los pedidos
+  const loadAdminOrders = useCallback(async () => {
+    console.log('👑 Admin cargando TODOS los pedidos...')
+    return await loadAllOrders()
+  }, [])
+
+  // Manejar nuevos pedidos para admin
+  const handleNewOrderNotification = useCallback((newOrder: any) => {
+    console.log('🔔 Admin: Nuevo pedido recibido:', newOrder.order_number)
+    toast.success('¡Nuevo pedido recibido!', {
+      description: `Pedido #${newOrder.order_number}`,
+      duration: 5000,
+      action: {
+        label: 'Ver',
+        onClick: () => {
+          // Aquí podrías implementar navegación directa al pedido
+        }
+      }
+    })
+  }, [])
+
+  // Callback para actualizaciones de pedidos
+  const handleOrderUpdate = useCallback((updatedOrder: any) => {
+    console.log('🔄 Admin: Pedido actualizado:', updatedOrder.order_number, updatedOrder.status)
+    toast.info('Pedido actualizado', {
+      description: `Pedido #${updatedOrder.order_number} - ${mapDatabaseStatusToUI(updatedOrder.status).label}`,
+      duration: 3000
+    })
+  }, [])
+
+  // 🚀 ESTADO SIMPLE + POLLING MANUAL (más confiable)
+  const [allOrders, setAllOrders] = useState<CompleteOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
   // Función para cargar pedidos
-  const loadOrders = async () => {
+  const refreshOrders = useCallback(async () => {
     try {
-      setIsLoading(true)
       setError(null)
-      const { orders, error: loadError } = await loadAllOrders()
+      console.log('🔄 Admin: Cargando pedidos...')
+      
+      const { orders, error: loadError } = await loadAdminOrders()
       
       if (loadError) {
         setError(loadError)
         console.error('❌ Error cargando pedidos:', loadError)
       } else {
+        // Detectar pedidos nuevos
+        const newCount = orders.length - allOrders.length
+        if (newCount > 0 && allOrders.length > 0) {
+          console.log('🔔 Admin: Detectados', newCount, 'pedidos nuevos')
+          
+          // 🔊 REPRODUCIR SONIDO DE NOTIFICACIÓN
+          playNotificationSound()
+          
+          toast.success(`¡${newCount} nuevo${newCount > 1 ? 's' : ''} pedido${newCount > 1 ? 's' : ''} recibido${newCount > 1 ? 's' : ''}!`, {
+            duration: 5000
+          })
+        }
+        
         setAllOrders(orders)
-        console.log('✅ Pedidos cargados:', orders.length)
+        setLastUpdateTime(new Date())
+        console.log('✅ Admin: Pedidos cargados:', orders.length)
       }
     } catch (err) {
       console.error('💥 Error inesperado:', err)
@@ -252,12 +330,37 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
     } finally {
       setIsLoading(false)
     }
-  }
-  
-  // Cargar pedidos al montar componente
+  }, [allOrders.length])
+
+  // ⏰ POLLING AUTOMÁTICO CADA 30 SEGUNDOS
   useEffect(() => {
-    loadOrders()
+    // Carga inicial
+    refreshOrders()
+
+    // Configurar polling cada 30 segundos
+    intervalRef.current = setInterval(() => {
+      console.log('⏰ Admin: Polling automático ejecutándose...')
+      refreshOrders()
+    }, 30000) // 30 segundos
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
   }, [])
+
+  // 🎯 FUNCIÓN PARA OBTENER ÍCONO DE ESTADO DE CONEXIÓN
+  const getConnectionIcon = () => {
+    if (isLoading && !allOrders.length) {
+      return <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+    }
+    
+    return <Loader className="w-4 h-4 text-orange-600 animate-pulse" />
+  }
+
+  // Estado de conexión simplificado
+  const connectionState = isLoading && !allOrders.length ? 'loading' : 'polling'
 
   // Agrupar pedidos por fecha
   const pedidosAgrupados = filteredOrders.reduce((acc, pedido) => {
@@ -386,7 +489,7 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
               variant="outline"
               size="sm"
               className="h-10 md:h-8 text-base md:text-sm"
-              onClick={loadOrders}
+              onClick={refreshOrders}
               disabled={isLoading}
             >
               <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />

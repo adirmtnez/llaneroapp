@@ -174,9 +174,9 @@ export function useSmartRealtimeOrders({
             }))
             
             // Solo reconectar si aún necesitamos la conexión
-            if (shouldConnectRef.current && prev.connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
-              console.log(`🔄 Reintentando conexión (${prev.connectionAttempts}/${MAX_RECONNECT_ATTEMPTS})...`)
-              setTimeout(connect, 2000 * prev.connectionAttempts) // Backoff exponencial
+            if (shouldConnectRef.current && state.connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
+              console.log(`🔄 Reintentando conexión (${state.connectionAttempts}/${MAX_RECONNECT_ATTEMPTS})...`)
+              setTimeout(connect, 2000 * state.connectionAttempts) // Backoff exponencial
             } else {
               console.log('🔄 Máx reintentos alcanzados, usando polling fallback')
               fallbackToPolling()

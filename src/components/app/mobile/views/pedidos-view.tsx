@@ -753,25 +753,6 @@ export function PedidosView() {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
             <div className="flex items-center gap-2">
-              {/* Estado del sistema híbrido */}
-              {realtimeState.isConnected && (
-                <div className="flex items-center gap-1 text-xs text-green-600">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="hidden sm:inline">Realtime</span>
-                </div>
-              )}
-              {realtimeState.isConnecting && (
-                <div className="flex items-center gap-1 text-xs text-yellow-600">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span className="hidden sm:inline">Conectando...</span>
-                </div>
-              )}
-              {realtimeState.error && !realtimeState.isConnected && (
-                <div className="flex items-center gap-1 text-xs text-blue-600">
-                  <RefreshCw className="w-3 h-3" />
-                  <span className="hidden sm:inline">Polling</span>
-                </div>
-              )}
               {isRefreshing && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
