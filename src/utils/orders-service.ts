@@ -89,11 +89,20 @@ export interface CompleteOrder extends DatabaseOrder {
   }
 }
 
-// Función para cargar pedidos del usuario
-export async function loadUserOrders(userId: string) {
+// Función para cargar pedidos del usuario CON CACHE INTELIGENTE
+export async function loadUserOrders(userId: string, forceRefresh = false) {
   try {
     console.log('🔍 Cargando pedidos del usuario:', userId)
     
+    // 💾 Intentar cache primero (si no es refresh forzado)
+    if (!forceRefresh) {
+      const cachedOrders = getCachedUserOrders(userId)
+      if (cachedOrders) {
+        return { orders: cachedOrders, error: null }
+      }
+    }
+    
+    console.log('🌐 Cache miss - cargando desde base de datos...')
     const { data, error } = await nuclearSelect(
       'orders',
       `
@@ -122,10 +131,13 @@ export async function loadUserOrders(userId: string) {
     // Ordenar por fecha más reciente primero
     const sortedOrders = (data || []).sort((a: any, b: any) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+    ) as CompleteOrder[]
+
+    // 💾 Guardar en cache para futuras consultas
+    setCachedUserOrders(userId, sortedOrders)
 
     console.log('✅ Pedidos cargados exitosamente:', sortedOrders.length)
-    return { orders: sortedOrders as CompleteOrder[], error: null }
+    return { orders: sortedOrders, error: null }
     
   } catch (error) {
     console.error('💥 Error inesperado cargando pedidos:', error)
@@ -222,6 +234,130 @@ export function mergeOrderStatusUpdates(
     
     return existingOrder
   })
+}
+
+// 💾 CACHE INTELIGENTE: Sistema para datos estáticos de pedidos
+const CACHE_KEYS = {
+  USER_ORDERS_FULL: 'user_orders_full_',
+  CACHE_TIMESTAMP: 'user_orders_timestamp_',
+  CACHE_VERSION: 'v1' // Incrementar para limpiar cache en updates
+}
+
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos para datos completos
+
+// Función para obtener cache de pedidos completos
+function getCachedUserOrders(userId: string): CompleteOrder[] | null {
+  try {
+    const cacheKey = CACHE_KEYS.USER_ORDERS_FULL + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    const timestampKey = CACHE_KEYS.CACHE_TIMESTAMP + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    
+    const cached = localStorage.getItem(cacheKey)
+    const timestamp = localStorage.getItem(timestampKey)
+    
+    if (!cached || !timestamp) return null
+    
+    const age = Date.now() - parseInt(timestamp)
+    if (age > CACHE_DURATION) {
+      // Cache expirado, limpiar
+      localStorage.removeItem(cacheKey)
+      localStorage.removeItem(timestampKey)
+      return null
+    }
+    
+    console.log('💾 Cache hit - pedidos completos desde localStorage')
+    return JSON.parse(cached)
+    
+  } catch (error) {
+    console.warn('⚠️ Error leyendo cache, ignorando:', error)
+    return null
+  }
+}
+
+// Función para guardar cache de pedidos completos
+function setCachedUserOrders(userId: string, orders: CompleteOrder[]): void {
+  try {
+    const cacheKey = CACHE_KEYS.USER_ORDERS_FULL + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    const timestampKey = CACHE_KEYS.CACHE_TIMESTAMP + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    
+    localStorage.setItem(cacheKey, JSON.stringify(orders))
+    localStorage.setItem(timestampKey, Date.now().toString())
+    
+    console.log('💾 Cache guardado - pedidos completos en localStorage')
+    
+  } catch (error) {
+    console.warn('⚠️ Error guardando cache, continuando sin cache:', error)
+  }
+}
+
+// Función para limpiar cache de usuario
+export function clearUserOrdersCache(userId: string): void {
+  try {
+    const cacheKey = CACHE_KEYS.USER_ORDERS_FULL + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    const timestampKey = CACHE_KEYS.CACHE_TIMESTAMP + userId + '_' + CACHE_KEYS.CACHE_VERSION
+    
+    localStorage.removeItem(cacheKey)
+    localStorage.removeItem(timestampKey)
+    
+    console.log('🧹 Cache de pedidos limpiado para usuario:', userId)
+  } catch (error) {
+    console.warn('⚠️ Error limpiando cache:', error)
+  }
+}
+
+// ⏰ POLLING PROGRESIVO: Intervalos dinámicos basados en edad del pedido
+export function calculatePollingInterval(orders: CompleteOrder[] | Partial<CompleteOrder>[]): number {
+  if (orders.length === 0) return 60000 // 1 minuto por defecto
+  
+  const now = new Date().getTime()
+  let shortestInterval = 60000 // 1 minuto máximo
+  
+  for (const order of orders) {
+    if (!order.created_at || order.status === 'delivered' || order.status === 'cancelled') continue
+    
+    const orderAge = now - new Date(order.created_at).getTime()
+    const minutes = orderAge / (60 * 1000)
+    
+    let interval: number
+    
+    if (minutes < 5) {
+      interval = 15000 // 15 segundos para pedidos muy nuevos
+    } else if (minutes < 15) {
+      interval = 30000 // 30 segundos para pedidos nuevos
+    } else if (minutes < 60) {
+      interval = 45000 // 45 segundos para pedidos recientes
+    } else {
+      interval = 60000 // 1 minuto para pedidos más viejos
+    }
+    
+    shortestInterval = Math.min(shortestInterval, interval)
+  }
+  
+  console.log(`⏰ Polling progresivo: ${shortestInterval/1000}s basado en ${orders.length} pedidos activos`)
+  return shortestInterval
+}
+
+// 🎯 Análisis de pedidos para optimización
+export function getPollingAnalysis(orders: CompleteOrder[]): {
+  needsPolling: CompleteOrder[]
+  pollingInterval: number
+  shouldUseCache: boolean
+} {
+  const ordersNeedingPolling = getOrdersNeedingPolling(orders)
+  const pollingInterval = calculatePollingInterval(ordersNeedingPolling)
+  
+  // Usar cache si todos los pedidos son viejos (>30 min)
+  const now = new Date().getTime()
+  const allOrdersOld = orders.every(order => {
+    if (order.status === 'delivered' || order.status === 'cancelled') return true
+    const age = now - new Date(order.created_at).getTime()
+    return age > (30 * 60 * 1000) // 30 minutos
+  })
+  
+  return {
+    needsPolling: ordersNeedingPolling as CompleteOrder[],
+    pollingInterval,
+    shouldUseCache: allOrdersOld
+  }
 }
 
 // Función para obtener pedidos entregados

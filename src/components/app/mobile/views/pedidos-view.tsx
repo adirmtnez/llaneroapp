@@ -15,6 +15,8 @@ import {
   loadOrdersStatusOnly,
   getOrdersNeedingPolling,
   mergeOrderStatusUpdates,
+  getPollingAnalysis,
+  clearUserOrdersCache,
   getPendingOrders, 
   getDeliveredOrders, 
   mapDatabaseStatusToUI,
@@ -142,30 +144,45 @@ export function PedidosView() {
     loadOrders()
   }, [user?.auth_user?.id])
 
-  // 🚀 POLLING OPTIMIZADO: Solo status updates (96% menos Egress)
+  // 🧹 Limpiar cache cuando el componente se desmonta o cambia usuario
+  useEffect(() => {
+    return () => {
+      if (user?.auth_user?.id) {
+        // Solo limpiar si el usuario cambió, no al desmontar por navegación normal
+        const timeoutId = setTimeout(() => {
+          console.log('🧹 Limpiando cache por desmontaje del componente')
+          clearUserOrdersCache(user.auth_user.id)
+        }, 100)
+        
+        return () => clearTimeout(timeoutId)
+      }
+    }
+  }, [user?.auth_user?.id])
+
+  // 🚀 POLLING PROGRESIVO + CACHE INTELIGENTE
   useEffect(() => {
     if (!user?.auth_user?.id) return
 
-    // 🎯 Filtro inteligente: Solo pedidos que realmente necesitan polling
-    const ordersNeedingPolling = getOrdersNeedingPolling(allOrders)
+    // 🎯 Análisis completo de pedidos para optimización
+    const analysis = getPollingAnalysis(allOrders)
     
-    if (ordersNeedingPolling.length > 0) {
-      console.log('📡 Iniciando polling optimizado para', ordersNeedingPolling.length, 'pedidos activos...')
+    if (analysis.needsPolling.length > 0) {
+      console.log(`📡 Iniciando polling progresivo: ${analysis.pollingInterval/1000}s para ${analysis.needsPolling.length} pedidos activos`)
       
       const interval = setInterval(() => {
         // Solo actualizar si la página está visible
         if (!document.hidden) {
-          console.log('⚡ Polling optimizado - solo status updates')
+          console.log(`⚡ Polling progresivo (${analysis.pollingInterval/1000}s) - status updates`)
           loadOrdersStatusUpdate() // 🚀 Función optimizada
         } else {
           console.log('📱 Página oculta, saltando actualización')
         }
-      }, 30000) // 30 segundos
+      }, analysis.pollingInterval) // ⏰ Intervalo dinámico basado en edad
 
       // También actualizar cuando la página vuelve a ser visible
       const handleVisibilityChange = () => {
-        if (!document.hidden && ordersNeedingPolling.length > 0) {
-          console.log('👁️ Página visible, polling optimizado...')
+        if (!document.hidden && analysis.needsPolling.length > 0) {
+          console.log('👁️ Página visible, polling progresivo...')
           loadOrdersStatusUpdate() // 🚀 Función optimizada
         }
       }
@@ -678,12 +695,18 @@ export function PedidosView() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  // 🚀 Refresh inteligente: usar polling optimizado si hay pedidos, sino carga completa
-                  const needsPolling = getOrdersNeedingPolling(allOrders)
-                  if (needsPolling.length > 0) {
+                  // 🚀 Refresh híbrido: análisis inteligente de la mejor estrategia
+                  const analysis = getPollingAnalysis(allOrders)
+                  
+                  if (analysis.needsPolling.length > 0) {
+                    console.log('🔄 Refresh optimizado - solo status updates')
                     loadOrdersStatusUpdate()
+                  } else if (analysis.shouldUseCache) {
+                    console.log('💾 Refresh desde cache - pedidos estables')
+                    loadOrders(false) // Permitir cache
                   } else {
-                    loadOrders(true)
+                    console.log('🌐 Refresh completo - forzar desde BD')
+                    loadOrders(true) // Forzar refresh
                   }
                 }}
                 disabled={isRefreshing}
