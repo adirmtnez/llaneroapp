@@ -23,6 +23,7 @@ import {
   mapPaymentMethod,
   type CompleteOrder 
 } from '@/utils/orders-service'
+import { useSmartRealtimeOrders } from '@/hooks/use-smart-realtime-orders'
 
 // Interfaces para UI (simplificadas)
 interface Repartidor {
@@ -73,6 +74,10 @@ export function PedidosView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // 🚀 SISTEMA HÍBRIDO: Realtime + Polling states
+  const [useRealtime, setUseRealtime] = useState(true) // Preferir Realtime inicialmente
+  const [realtimeEnabled, setRealtimeEnabled] = useState(false) // Bandera de control
 
   // Función para cargar pedidos (reutilizable)
   const loadOrders = async (isRefresh = false) => {
@@ -139,6 +144,50 @@ export function PedidosView() {
     }
   }
 
+  // 📨 Callback para actualizaciones Realtime
+  const handleRealtimeUpdate = useCallback((update: Partial<CompleteOrder>) => {
+    console.log('📨 Procesando actualización Realtime:', update.order_number, update.status)
+    
+    setAllOrders(prevOrders => {
+      const existingIndex = prevOrders.findIndex(order => order.id === update.id)
+      
+      if (existingIndex >= 0) {
+        // Actualizar pedido existente
+        const updatedOrders = [...prevOrders]
+        updatedOrders[existingIndex] = {
+          ...updatedOrders[existingIndex],
+          ...update,
+          updated_at: new Date().toISOString() // Marcar como actualizado
+        }
+        console.log('🔄 Pedido actualizado via Realtime:', update.order_number)
+        return updatedOrders
+      } else if (update.customer_id === user?.auth_user?.id) {
+        // Nuevo pedido para este usuario
+        console.log('➕ Nuevo pedido recibido via Realtime:', update.order_number)
+        // Para nuevos pedidos, hacer una carga completa para obtener todos los datos
+        loadOrders(true)
+        return prevOrders
+      }
+      
+      return prevOrders
+    })
+  }, [user?.auth_user?.id])
+
+  // 🔄 Callback para fallback a polling
+  const handleRealtimeFallback = useCallback(() => {
+    console.log('⚠️ Realtime falló, activando polling fallback')
+    setUseRealtime(false)
+    setRealtimeEnabled(false)
+  }, [])
+
+  // 📡 Hook Smart Realtime con conexión bajo demanda
+  const realtimeState = useSmartRealtimeOrders({
+    userId: user?.auth_user?.id || '',
+    onOrderUpdate: handleRealtimeUpdate,
+    shouldConnect: useRealtime && realtimeEnabled && !!user?.auth_user?.id,
+    fallbackToPolling: handleRealtimeFallback
+  })
+
   // Cargar pedidos inicialmente
   useEffect(() => {
     loadOrders()
@@ -159,43 +208,62 @@ export function PedidosView() {
     }
   }, [user?.auth_user?.id])
 
-  // 🚀 POLLING PROGRESIVO + CACHE INTELIGENTE
+  // 🚀 SISTEMA HÍBRIDO: Realtime + Polling Progresivo Inteligente
   useEffect(() => {
     if (!user?.auth_user?.id) return
 
-    // 🎯 Análisis completo de pedidos para optimización
+    // 🎯 Análisis completo de pedidos para estrategia óptima
     const analysis = getPollingAnalysis(allOrders)
     
+    // 📡 DECISIÓN INTELIGENTE: ¿Usar Realtime o Polling?
     if (analysis.needsPolling.length > 0) {
-      console.log(`📡 Iniciando polling progresivo: ${analysis.pollingInterval/1000}s para ${analysis.needsPolling.length} pedidos activos`)
       
-      const interval = setInterval(() => {
-        // Solo actualizar si la página está visible
-        if (!document.hidden) {
-          console.log(`⚡ Polling progresivo (${analysis.pollingInterval/1000}s) - status updates`)
-          loadOrdersStatusUpdate() // 🚀 Función optimizada
-        } else {
-          console.log('📱 Página oculta, saltando actualización')
-        }
-      }, analysis.pollingInterval) // ⏰ Intervalo dinámico basado en edad
+      // 1️⃣ Intentar Realtime primero (si está habilitado y disponible)
+      if (useRealtime && !realtimeEnabled) {
+        console.log('📡 Habilitando Smart Realtime para pedidos activos...')
+        setRealtimeEnabled(true)
+        return // Realtime se encargará de las actualizaciones
+      }
+      
+      // 2️⃣ Fallback a Polling Progresivo si Realtime no está disponible
+      if (!useRealtime || realtimeState.error) {
+        console.log(`📡 Usando Polling Progresivo: ${analysis.pollingInterval/1000}s para ${analysis.needsPolling.length} pedidos activos`)
+        
+        const interval = setInterval(() => {
+          // Solo actualizar si la página está visible
+          if (!document.hidden) {
+            console.log(`⚡ Polling progresivo (${analysis.pollingInterval/1000}s) - status updates`)
+            loadOrdersStatusUpdate() // 🚀 Función optimizada
+          } else {
+            console.log('📱 Página oculta, saltando actualización')
+          }
+        }, analysis.pollingInterval) // ⏰ Intervalo dinámico basado en edad
 
-      // También actualizar cuando la página vuelve a ser visible
-      const handleVisibilityChange = () => {
-        if (!document.hidden && analysis.needsPolling.length > 0) {
-          console.log('👁️ Página visible, polling progresivo...')
-          loadOrdersStatusUpdate() // 🚀 Función optimizada
+        // También actualizar cuando la página vuelve a ser visible
+        const handleVisibilityChange = () => {
+          if (!document.hidden && analysis.needsPolling.length > 0) {
+            console.log('👁️ Página visible, polling progresivo...')
+            loadOrdersStatusUpdate() // 🚀 Función optimizada
+          }
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+
+        return () => {
+          console.log('📡 Deteniendo polling progresivo')
+          clearInterval(interval)
+          document.removeEventListener('visibilitychange', handleVisibilityChange)
         }
       }
-
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-
-      return () => {
-        console.log('📡 Deteniendo polling')
-        clearInterval(interval)
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      
+    } else {
+      // 3️⃣ No hay pedidos activos, desconectar Realtime para ahorrar conexiones
+      if (realtimeEnabled) {
+        console.log('📡 No hay pedidos activos, deshabilitando Realtime...')
+        setRealtimeEnabled(false)
       }
     }
-  }, [user?.auth_user?.id, allOrders])
+  }, [user?.auth_user?.id, allOrders, useRealtime, realtimeEnabled, realtimeState.error])
 
   // Mock data para repartidor y bodegón  
   const getMockRepartidor = (pedido: CompleteOrder): Repartidor => ({
@@ -685,6 +753,25 @@ export function PedidosView() {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
             <div className="flex items-center gap-2">
+              {/* Estado del sistema híbrido */}
+              {realtimeState.isConnected && (
+                <div className="flex items-center gap-1 text-xs text-green-600">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                  <span className="hidden sm:inline">Realtime</span>
+                </div>
+              )}
+              {realtimeState.isConnecting && (
+                <div className="flex items-center gap-1 text-xs text-yellow-600">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="hidden sm:inline">Conectando...</span>
+                </div>
+              )}
+              {realtimeState.error && !realtimeState.isConnected && (
+                <div className="flex items-center gap-1 text-xs text-blue-600">
+                  <RefreshCw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Polling</span>
+                </div>
+              )}
               {isRefreshing && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
