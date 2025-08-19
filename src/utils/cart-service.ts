@@ -31,7 +31,8 @@ export async function loadUserCart(userId: string) {
        bodegon_products(id, name, price, image_gallery_urls)`,
       { 
         created_by: userId,
-        order_id: null // Solo items que no están en un pedido confirmado
+        order_id: null, // Solo items que no están en un pedido confirmado
+        invoiced: false // Solo items no facturados (no procesados)
       }
     )
 
@@ -83,7 +84,8 @@ export async function addToCart(
       {
         created_by: userId,
         [isBodegon ? 'bodegon_product_id' : 'restaurant_product_id']: productId,
-        order_id: null
+        order_id: null,
+        invoiced: false
       }
     )
 
@@ -101,6 +103,7 @@ export async function addToCart(
         unit_price: price,
         name_snapshot: productName,
         order_id: null,
+        invoiced: false, // Por defecto no facturado
         ...(isBodegon 
           ? { bodegon_product_id: productId, restaurant_product_id: null }
           : { restaurant_product_id: productId, bodegon_product_id: null }
@@ -182,7 +185,8 @@ export async function clearUserCart(userId: string) {
       'id',
       { 
         created_by: userId,
-        order_id: null 
+        order_id: null,
+        invoiced: false
       }
     )
 
@@ -213,7 +217,8 @@ export async function findCartItem(userId: string, productId: string, isBodegon:
       {
         created_by: userId,
         [isBodegon ? 'bodegon_product_id' : 'restaurant_product_id']: productId,
-        order_id: null
+        order_id: null,
+        invoiced: false
       }
     )
 

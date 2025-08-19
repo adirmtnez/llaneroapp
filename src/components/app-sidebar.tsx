@@ -87,12 +87,6 @@ const data = {
       ],
     },
     {
-      name: "Ventas",
-      url: "#",
-      icon: TrendingUp,
-      viewId: "bodegones-ventas",
-    },
-    {
       name: "Equipo",
       url: "#",
       icon: Users,

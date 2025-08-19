@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw } from "lucide-react"
+import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -443,8 +443,14 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
 
         {/* Empty state */}
         {!isLoading && !error && fechasOrdenadas.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No se encontraron pedidos
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mb-4 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mx-auto">
+              <ShoppingBag className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-lg font-medium text-gray-700 mb-1">No se encontraron pedidos</p>
+            <p className="text-sm text-gray-500 text-center max-w-md mx-auto">
+              No hay pedidos para mostrar en este momento
+            </p>
           </div>
         )}
         

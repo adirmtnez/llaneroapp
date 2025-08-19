@@ -116,9 +116,13 @@ export const createCompleteOrder = async (orderData: CreateOrderData): Promise<C
       async (client) => {
         return await client
           .from('order_item')
-          .update({ order_id: orderId })
+          .update({ 
+            order_id: orderId,
+            invoiced: true // ✅ Marcar como facturado al crear el pedido
+          })
           .eq('created_by', orderData.customerId)
           .is('order_id', null)
+          .eq('invoiced', false) // Solo actualizar items no facturados
       }
     )
 

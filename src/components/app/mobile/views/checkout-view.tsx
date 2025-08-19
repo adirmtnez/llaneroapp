@@ -227,7 +227,8 @@ export function CheckoutView({ onBack, onNavigateHome, selectedBodegon = 'La Est
            bodegon_products(id, name, price, image_gallery_urls)`,
           { 
             created_by: user.auth_user.id,
-            order_id: null // Solo items que no están en un pedido confirmado
+            order_id: null, // Solo items que no están en un pedido confirmado
+            invoiced: false // Solo items no facturados
           }
         )
 
