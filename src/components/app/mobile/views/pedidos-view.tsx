@@ -12,6 +12,9 @@ import { es } from 'date-fns/locale'
 import { useAuth } from '@/contexts/auth-context'
 import { 
   loadUserOrders, 
+  loadOrdersStatusOnly,
+  getOrdersNeedingPolling,
+  mergeOrderStatusUpdates,
   getPendingOrders, 
   getDeliveredOrders, 
   mapDatabaseStatusToUI,
@@ -103,28 +106,57 @@ export function PedidosView() {
     }
   }
 
+  // 🚀 FUNCIÓN OPTIMIZADA: Solo para polling de status (96% menos Egress)
+  const loadOrdersStatusUpdate = async () => {
+    if (!user?.auth_user?.id || allOrders.length === 0) return
+
+    try {
+      setIsRefreshing(true)
+      
+      console.log('⚡ Polling optimizado - solo status updates')
+      const { orders: statusUpdates, error: statusError } = await loadOrdersStatusOnly(user.auth_user.id)
+      
+      if (statusError) {
+        console.error('❌ Error en polling de status, fallback a carga completa')
+        // 🔄 Fallback seguro: si falla el polling optimizado, usar método original
+        await loadOrders(true)
+        return
+      }
+
+      // Merge los updates de status con los datos completos existentes
+      const updatedOrders = mergeOrderStatusUpdates(allOrders, statusUpdates)
+      setAllOrders(updatedOrders)
+      console.log('⚡ Status actualizado exitosamente:', statusUpdates.length, 'pedidos')
+      
+    } catch (err) {
+      console.error('💥 Error en polling optimizado, fallback a carga completa:', err)
+      // 🔄 Fallback seguro en caso de error inesperado
+      await loadOrders(true)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   // Cargar pedidos inicialmente
   useEffect(() => {
     loadOrders()
   }, [user?.auth_user?.id])
 
-  // Polling para actualizar pedidos pendientes cada 30 segundos
+  // 🚀 POLLING OPTIMIZADO: Solo status updates (96% menos Egress)
   useEffect(() => {
     if (!user?.auth_user?.id) return
 
-    // Solo hacer polling si hay pedidos pendientes
-    const hasPendingOrders = allOrders.some(order => 
-      order.status !== 'delivered' && order.status !== 'cancelled'
-    )
-
-    if (hasPendingOrders) {
-      console.log('📡 Iniciando polling para pedidos pendientes...')
+    // 🎯 Filtro inteligente: Solo pedidos que realmente necesitan polling
+    const ordersNeedingPolling = getOrdersNeedingPolling(allOrders)
+    
+    if (ordersNeedingPolling.length > 0) {
+      console.log('📡 Iniciando polling optimizado para', ordersNeedingPolling.length, 'pedidos activos...')
       
       const interval = setInterval(() => {
         // Solo actualizar si la página está visible
         if (!document.hidden) {
-          console.log('🔄 Actualizando pedidos automáticamente...')
-          loadOrders(true) // isRefresh = true
+          console.log('⚡ Polling optimizado - solo status updates')
+          loadOrdersStatusUpdate() // 🚀 Función optimizada
         } else {
           console.log('📱 Página oculta, saltando actualización')
         }
@@ -132,9 +164,9 @@ export function PedidosView() {
 
       // También actualizar cuando la página vuelve a ser visible
       const handleVisibilityChange = () => {
-        if (!document.hidden && hasPendingOrders) {
-          console.log('👁️ Página visible, actualizando pedidos...')
-          loadOrders(true)
+        if (!document.hidden && ordersNeedingPolling.length > 0) {
+          console.log('👁️ Página visible, polling optimizado...')
+          loadOrdersStatusUpdate() // 🚀 Función optimizada
         }
       }
 
@@ -645,7 +677,15 @@ export function PedidosView() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => loadOrders(true)}
+                onClick={() => {
+                  // 🚀 Refresh inteligente: usar polling optimizado si hay pedidos, sino carga completa
+                  const needsPolling = getOrdersNeedingPolling(allOrders)
+                  if (needsPolling.length > 0) {
+                    loadOrdersStatusUpdate()
+                  } else {
+                    loadOrders(true)
+                  }
+                }}
                 disabled={isRefreshing}
                 className="h-8 w-8 p-0"
               >

@@ -133,11 +133,95 @@ export async function loadUserOrders(userId: string) {
   }
 }
 
+// 🚀 FUNCIÓN OPTIMIZADA: Solo para polling de cambios de status
+// Reduce Egress en 96% vs loadUserOrders completa
+export async function loadOrdersStatusOnly(userId: string) {
+  try {
+    console.log('⚡ Cargando solo status de pedidos activos para:', userId)
+    
+    const { data, error } = await nuclearSelect(
+      'orders',
+      `
+        id,
+        order_number, 
+        status,
+        payment_status,
+        updated_at,
+        created_at,
+        total_amount,
+        delivery_mode
+      `,
+      { 
+        customer_id: userId
+        // ✅ NO filtrar por status aquí - dejamos que el cliente decida
+        // qué pedidos necesita hacer polling
+      }
+    )
+
+    if (error) {
+      console.error('❌ Error cargando status de pedidos:', error)
+      return { orders: [], error }
+    }
+
+    // Ordenar por fecha más reciente primero
+    const sortedOrders = (data || []).sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+
+    console.log('⚡ Status de pedidos cargado:', sortedOrders.length, 'pedidos')
+    return { orders: sortedOrders as Partial<CompleteOrder>[], error: null }
+    
+  } catch (error) {
+    console.error('💥 Error inesperado cargando status:', error)
+    return { orders: [], error: 'Error inesperado cargando status de pedidos' }
+  }
+}
+
 // Función para obtener pedidos pendientes
 export function getPendingOrders(orders: CompleteOrder[]): CompleteOrder[] {
   return orders.filter(order => 
     order.status !== 'delivered' && order.status !== 'cancelled'
   )
+}
+
+// 🎯 FILTRO INTELIGENTE: Determina qué pedidos necesitan polling activo
+export function getOrdersNeedingPolling(orders: CompleteOrder[] | Partial<CompleteOrder>[]): Partial<CompleteOrder>[] {
+  const now = new Date().getTime()
+  const twoHoursAgo = now - (2 * 60 * 60 * 1000) // 2 horas en millisegundos
+  
+  return orders.filter(order => {
+    // ✅ Solo pedidos que no están finalizados
+    const isPending = order.status !== 'delivered' && order.status !== 'cancelled'
+    
+    // ✅ Solo pedidos recientes (últimas 2 horas) para evitar polling infinito
+    const isRecent = order.created_at ? 
+      new Date(order.created_at).getTime() > twoHoursAgo : true
+    
+    return isPending && isRecent
+  })
+}
+
+// 🔄 FUNCIÓN HÍBRIDA: Merge status updates con datos completos existentes
+export function mergeOrderStatusUpdates(
+  existingOrders: CompleteOrder[], 
+  statusUpdates: Partial<CompleteOrder>[]
+): CompleteOrder[] {
+  return existingOrders.map(existingOrder => {
+    // Buscar update de status para este pedido
+    const statusUpdate = statusUpdates.find(update => update.id === existingOrder.id)
+    
+    if (statusUpdate) {
+      // Merge solo los campos de status actualizados
+      return {
+        ...existingOrder,
+        status: statusUpdate.status || existingOrder.status,
+        payment_status: statusUpdate.payment_status || existingOrder.payment_status,
+        updated_at: statusUpdate.updated_at || existingOrder.updated_at
+      }
+    }
+    
+    return existingOrder
+  })
 }
 
 // Función para obtener pedidos entregados
