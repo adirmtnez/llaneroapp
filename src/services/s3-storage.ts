@@ -170,6 +170,62 @@ export class S3StorageService {
     }
   }
 
+  // Upload restaurant category image using S3
+  static async uploadRestaurantCategoryImage(
+    file: File,
+    categoryId?: string
+  ): Promise<string> {
+    try {
+      console.log('S3StorageService: Starting restaurant category image upload')
+      const fileExt = file.name.split('.').pop()
+      const fileName = categoryId 
+        ? `${categoryId}_${Date.now()}.${fileExt}`
+        : `category_${Date.now()}.${fileExt}`
+      const key = `restaurantes/categorias/images/${fileName}`
+
+      console.log('S3StorageService: Generated key:', key)
+      const result = await this.uploadFile(key, file, file.type)
+      console.log('S3StorageService: Upload result:', result)
+      
+      if (result.error || !result.data) {
+        throw result.error || new Error('Upload failed')
+      }
+      
+      return result.data.url
+    } catch (error) {
+      console.error('S3StorageService: Error in uploadRestaurantCategoryImage:', error)
+      throw error
+    }
+  }
+
+  // Upload restaurant subcategory image using S3
+  static async uploadRestaurantSubcategoryImage(
+    file: File,
+    subcategoryId?: string
+  ): Promise<string> {
+    try {
+      console.log('S3StorageService: Starting restaurant subcategory image upload')
+      const fileExt = file.name.split('.').pop()
+      const fileName = subcategoryId 
+        ? `${subcategoryId}_${Date.now()}.${fileExt}`
+        : `subcategory_${Date.now()}.${fileExt}`
+      const key = `restaurantes/subcategorias/images/${fileName}`
+
+      console.log('S3StorageService: Generated key:', key)
+      const result = await this.uploadFile(key, file, file.type)
+      console.log('S3StorageService: Upload result:', result)
+      
+      if (result.error || !result.data) {
+        throw result.error || new Error('Upload failed')
+      }
+      
+      return result.data.url
+    } catch (error) {
+      console.error('S3StorageService: Error in uploadRestaurantSubcategoryImage:', error)
+      throw error
+    }
+  }
+
   // Helper to extract key from URL
   static extractKeyFromUrl(url: string): string | null {
     try {

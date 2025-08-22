@@ -964,48 +964,47 @@ export function BodegonesCatView() {
               {/* Foto de portada */}
               <div className="space-y-2">
                 <Label>Foto de portada</Label>
-                {!imagePreview ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <UploadCloudIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-600 mb-2">Arrastra una imagen aquí</p>
-                    <p className="text-xs text-gray-500 mb-4">PNG, JPG o WebP (máx. 5MB)</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('categoryImage')?.click()}
-                      disabled={isSubmitting}
-                      className="h-9 text-sm"
-                    >
-                      Seleccionar imagen
-                    </Button>
-                    <input
-                      id="categoryImage"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageSelect}
-                      disabled={isSubmitting}
-                    />
+                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors cursor-pointer">
+                  <input
+                    id="categoryImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex flex-col items-center justify-center text-center">
+                    {selectedImage ? (
+                      <div className="flex items-center gap-3 text-green-600">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-gray-900">{selectedImage.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedImage.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          Haz clic para subir una imagen
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG o WebP (máx. 5MB)
+                        </p>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
-                      onClick={handleRemoveImage}
-                      disabled={isSubmitting}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -1084,48 +1083,47 @@ export function BodegonesCatView() {
               {/* Foto de portada */}
               <div className="space-y-2">
                 <Label>Foto de portada</Label>
-                {!imagePreview ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <UploadCloudIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-600 mb-2">Arrastra una imagen aquí</p>
-                    <p className="text-xs text-gray-500 mb-4">PNG, JPG o WebP (máx. 5MB)</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('drawerCategoryImage')?.click()}
-                      disabled={isSubmitting}
-                      className="h-10 text-base"
-                    >
-                      Seleccionar imagen
-                    </Button>
-                    <input
-                      id="drawerCategoryImage"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageSelect}
-                      disabled={isSubmitting}
-                    />
+                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-gray-400 transition-colors cursor-pointer">
+                  <input
+                    id="drawerCategoryImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex flex-col items-center justify-center text-center">
+                    {selectedImage ? (
+                      <div className="flex items-center gap-3 text-green-600">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-gray-900">{selectedImage.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedImage.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          Haz clic para subir una imagen
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG o WebP (máx. 5MB)
+                        </p>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
-                      onClick={handleRemoveImage}
-                      disabled={isSubmitting}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -1207,48 +1205,47 @@ export function BodegonesCatView() {
               {/* Foto de portada */}
               <div className="space-y-2">
                 <Label>Foto de portada</Label>
-                {!imagePreview ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <UploadCloudIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-600 mb-2">Arrastra una imagen aquí</p>
-                    <p className="text-xs text-gray-500 mb-4">PNG, JPG o WebP (máx. 5MB)</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('editCategoryImage')?.click()}
-                      disabled={isSubmitting}
-                      className="h-9 text-sm"
-                    >
-                      Seleccionar imagen
-                    </Button>
-                    <input
-                      id="editCategoryImage"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageSelect}
-                      disabled={isSubmitting}
-                    />
+                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors cursor-pointer">
+                  <input
+                    id="editCategoryImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex flex-col items-center justify-center text-center">
+                    {selectedImage ? (
+                      <div className="flex items-center gap-3 text-green-600">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-gray-900">{selectedImage.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedImage.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          Haz clic para subir una imagen
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG o WebP (máx. 5MB)
+                        </p>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
-                      onClick={handleRemoveImage}
-                      disabled={isSubmitting}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
 
@@ -1327,48 +1324,47 @@ export function BodegonesCatView() {
               {/* Foto de portada */}
               <div className="space-y-2">
                 <Label>Foto de portada</Label>
-                {!imagePreview ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <UploadCloudIcon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-sm text-gray-600 mb-2">Arrastra una imagen aquí</p>
-                    <p className="text-xs text-gray-500 mb-4">PNG, JPG o WebP (máx. 5MB)</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => document.getElementById('drawerEditCategoryImage')?.click()}
-                      disabled={isSubmitting}
-                      className="h-10 text-base"
-                    >
-                      Seleccionar imagen
-                    </Button>
-                    <input
-                      id="drawerEditCategoryImage"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageSelect}
-                      disabled={isSubmitting}
-                    />
+                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-gray-400 transition-colors cursor-pointer">
+                  <input
+                    id="drawerEditCategoryImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex flex-col items-center justify-center text-center">
+                    {selectedImage ? (
+                      <div className="flex items-center gap-3 text-green-600">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-gray-900">{selectedImage.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedImage.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          Haz clic para subir una imagen
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG o WebP (máx. 5MB)
+                        </p>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Vista previa"
-                      className="w-full h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
-                      onClick={handleRemoveImage}
-                      disabled={isSubmitting}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
 

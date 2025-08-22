@@ -16,7 +16,6 @@ import { BodegonesMetodosPagoView } from './views/bodegones/metodos-pago-view'
 import { RestaurantesLocView } from './views/restaurantes/localidades-view'
 import { RestaurantesPedView } from './views/restaurantes/pedidos-view'
 import { RestaurantesProdView } from './views/restaurantes/productos-view'
-import { RestaurantesProductosTodosView } from './views/restaurantes/productos-todos-view'
 import { RestaurantesCatView } from './views/restaurantes/categorias-view'
 import { RestaurantesSubcatView } from './views/restaurantes/subcategorias-view'
 import { RestaurantesRepartidoresView } from './views/restaurantes/repartidores-view'
@@ -129,8 +128,6 @@ export function AdminContent() {
         return <RestaurantesPedView />
       case 'restaurantes-productos':
         return <RestaurantesProdView />
-      case 'restaurantes-productos-todos':
-        return <RestaurantesProductosTodosView />
       case 'restaurantes-categorias':
         return <RestaurantesCatView />
       case 'restaurantes-subcategorias':

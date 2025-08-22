@@ -133,7 +133,7 @@ const data = {
         {
           title: "Todos",
           url: "#",
-          viewId: "restaurantes-productos-todos",
+          viewId: "restaurantes-productos",
         },
         {
           title: "Categorías",
