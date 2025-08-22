@@ -113,7 +113,7 @@ const data = {
       viewId: "inicio",
     },
     {
-      name: "Localidades",
+      name: "Restaurantes",
       url: "#",
       icon: MapPin,
       viewId: "restaurantes-localidades",

@@ -1,14 +1,14 @@
 export interface Restaurant {
   id: string
   name: string
-  description?: string
+  phone_number?: string
   logo_url?: string
-  header_image_url?: string
-  rating?: number
-  review_count?: number
+  delivery_available: boolean
+  pickup_available: boolean
   is_active: boolean
-  created_date?: string
-  updated_date?: string
+  created_by?: string
+  created_at?: string
+  modified_at?: string
 }
 
 export interface RestaurantCategory {

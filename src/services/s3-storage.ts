@@ -81,9 +81,9 @@ export class S3StorageService {
 
   // Upload bodegon logo using S3
   static async uploadBodegonLogo(
-    bodegonId: string,
-    file: File
-  ): Promise<{ data: { key: string; url: string } | null; error: Error | null }> {
+    file: File,
+    bodegonId: string
+  ): Promise<string> {
     try {
       console.log('S3StorageService: Starting logo upload for bodegon', bodegonId)
       const fileExt = file.name.split('.').pop()
@@ -94,13 +94,40 @@ export class S3StorageService {
       const result = await this.uploadFile(key, file, file.type)
       console.log('S3StorageService: Upload result:', result)
       
-      return result
+      if (result.error || !result.data) {
+        throw result.error || new Error('Upload failed')
+      }
+      
+      return result.data.url
     } catch (error) {
       console.error('S3StorageService: Error in uploadBodegonLogo:', error)
-      return {
-        data: null,
-        error: error as Error,
+      throw error
+    }
+  }
+
+  // Upload restaurant logo using S3
+  static async uploadRestaurantLogo(
+    file: File,
+    restaurantId: string
+  ): Promise<string> {
+    try {
+      console.log('S3StorageService: Starting logo upload for restaurant', restaurantId)
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${restaurantId}_logo_${Date.now()}.${fileExt}`
+      const key = `restaurantes/logos/${fileName}`
+
+      console.log('S3StorageService: Generated key:', key)
+      const result = await this.uploadFile(key, file, file.type)
+      console.log('S3StorageService: Upload result:', result)
+      
+      if (result.error || !result.data) {
+        throw result.error || new Error('Upload failed')
       }
+      
+      return result.data.url
+    } catch (error) {
+      console.error('S3StorageService: Error in uploadRestaurantLogo:', error)
+      throw error
     }
   }
 
@@ -153,8 +180,23 @@ export class S3StorageService {
     }
   }
 
-  // Delete logo and clean up
+  // Delete bodegon logo and clean up
   static async deleteBodegonLogo(logoUrl: string): Promise<{ error: Error | null }> {
+    try {
+      const key = this.extractKeyFromUrl(logoUrl)
+      
+      if (!key) {
+        return { error: new Error('Invalid logo URL') }
+      }
+
+      return await this.deleteFile(key)
+    } catch (error) {
+      return { error: error as Error }
+    }
+  }
+
+  // Delete restaurant logo and clean up
+  static async deleteRestaurantLogo(logoUrl: string): Promise<{ error: Error | null }> {
     try {
       const key = this.extractKeyFromUrl(logoUrl)
       

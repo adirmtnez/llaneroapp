@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw, ShoppingBag, Wifi, WifiOff, Loader } from "lucide-react"
+import { Search, Filter, Download, Smartphone, Landmark, Globe, ChevronRight, Loader2, RefreshCw, ShoppingBag, Wifi, WifiOff, Loader, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -254,6 +254,42 @@ const playNotificationSound = () => {
   }
 }
 
+// 🔍 Función para detectar errores de conexión específicos
+const isConnectionError = (errorMessage: string): boolean => {
+  const connectionErrors = [
+    'ERR_CONNECTION_CLOSED',
+    'ERR_NETWORK',
+    'ERR_INTERNET_DISCONNECTED',
+    'Failed to fetch',
+    'Network request failed',
+    'Connection closed',
+    'net::ERR_',
+    'NetworkError'
+  ]
+  
+  return connectionErrors.some(error => 
+    errorMessage.toLowerCase().includes(error.toLowerCase())
+  )
+}
+
+// 🌐 Función para detectar errores de red en excepciones
+const isNetworkError = (error: any): boolean => {
+  if (!error) return false
+  
+  // Verificar mensaje de error
+  const message = error.message || error.toString() || ''
+  if (isConnectionError(message)) return true
+  
+  // Verificar tipos específicos de error
+  return (
+    error.name === 'NetworkError' ||
+    error.name === 'TypeError' && message.includes('fetch') ||
+    error.code === 'NETWORK_ERROR' ||
+    error.code === 'ECONNRESET' ||
+    error.code === 'ENOTFOUND'
+  )
+}
+
 export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filteredOrders, setFilteredOrders] = useState<CompleteOrder[]>([])
@@ -295,17 +331,37 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Función para cargar pedidos
-  const refreshOrders = useCallback(async () => {
+  // Función para cargar pedidos con reintentos automáticos
+  const refreshOrders = useCallback(async (retryCount = 0) => {
+    const maxRetries = 3
+    const baseDelay = 1000 // 1 segundo
+    
     try {
-      setError(null)
-      console.log('🔄 Admin: Cargando pedidos...')
+      // Solo mostrar error después del primer intento
+      if (retryCount === 0) {
+        setError(null)
+      }
+      
+      console.log(`🔄 Admin: Cargando pedidos... (intento ${retryCount + 1})`)
       
       const { orders, error: loadError } = await loadAdminOrders()
       
       if (loadError) {
+        console.error(`❌ Error cargando pedidos (intento ${retryCount + 1}):`, loadError)
+        
+        // Si es un error de conexión y tenemos reintentos disponibles
+        if (retryCount < maxRetries && isConnectionError(loadError)) {
+          const delay = baseDelay * Math.pow(2, retryCount) // Backoff exponencial
+          console.log(`🔄 Reintentando en ${delay}ms...`)
+          
+          setTimeout(() => {
+            refreshOrders(retryCount + 1)
+          }, delay)
+          return
+        }
+        
+        // Si agotamos los reintentos o no es error de conexión
         setError(loadError)
-        console.error('❌ Error cargando pedidos:', loadError)
       } else {
         // Detectar pedidos nuevos
         const newCount = orders.length - allOrders.length
@@ -322,13 +378,29 @@ export function BodegonesPedView({ onViewPedido }: BodegonesPedViewProps = {}) {
         
         setAllOrders(orders)
         setLastUpdateTime(new Date())
+        setError(null) // Limpiar cualquier error anterior
         console.log('✅ Admin: Pedidos cargados:', orders.length)
       }
     } catch (err) {
-      console.error('💥 Error inesperado:', err)
-      setError('Error inesperado al cargar pedidos')
+      console.error(`💥 Error inesperado (intento ${retryCount + 1}):`, err)
+      
+      // Reintentar si es error de red y tenemos reintentos disponibles
+      if (retryCount < maxRetries && isNetworkError(err)) {
+        const delay = baseDelay * Math.pow(2, retryCount)
+        console.log(`🔄 Reintentando por error de red en ${delay}ms...`)
+        
+        setTimeout(() => {
+          refreshOrders(retryCount + 1)
+        }, delay)
+        return
+      }
+      
+      setError('Error de conexión al cargar pedidos')
     } finally {
-      setIsLoading(false)
+      // Solo cambiar loading al final del último intento
+      if (retryCount === 0 || retryCount >= maxRetries) {
+        setIsLoading(false)
+      }
     }
   }, [allOrders.length])
 
